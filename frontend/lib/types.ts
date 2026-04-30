@@ -38,6 +38,7 @@ export interface SearchResult {
   processed_query: ProcessedQuery
   recommendations: Product[]
   ranked_products: Product[]
+  analysis_summary?: string
   durations_ms: Record<string, number>
 }
 

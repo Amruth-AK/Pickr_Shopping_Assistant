@@ -372,7 +372,7 @@ def main():
                     status.update(label="Step 1/4: Processing your query...")
                     state = asyncio.run(
                         graph._process_query_node(
-                            _initial_state(query, max_price, additional_requirements)
+                            _initial_state(query, max_price, additional_requirements, session_id)
                         )
                     )
 
@@ -422,9 +422,10 @@ def main():
             st.warning("No recommendations found. Try adjusting your search criteria.")
 
 
-def _initial_state(query, max_price, additional_requirements):
+def _initial_state(query, max_price, additional_requirements, session_id):
     from backend import ProductState
     return ProductState(
+        session_id=session_id,
         query=query,
         max_price=max_price,
         additional_requirements=additional_requirements,

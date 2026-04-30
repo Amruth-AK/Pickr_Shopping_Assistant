@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { ProductCard } from "./ProductCard"
+import { scoreColor } from "@/lib/utils"
 import type { Product } from "@/lib/types"
 
 interface ProductListProps {
@@ -14,56 +16,101 @@ export function ProductList({ products }: ProductListProps) {
   if (!products.length) return null
 
   return (
-    <section className="mt-10">
-      <h2 className="text-xl font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
-        All Ranked Products
-      </h2>
-      <div className="flex flex-col gap-3">
+    <section className="mt-2">
+      <div className="flex items-center gap-3 mb-5">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--text-1)" }}>
+          All Ranked Products
+        </h2>
+        <span
+          className="text-xs px-2 py-0.5 rounded-full"
+          style={{ background: "var(--bg-elevated)", color: "var(--text-3)", border: "1px solid var(--border-dim)" }}
+        >
+          {products.length} results
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
         {products.map((product, i) => {
           const overall = product.analysis?.scores?.overall_score ?? 0
+          const color = scoreColor(overall)
           const isOpen = openIndex === i
 
           return (
-            <div key={i} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border-subtle)" }}>
-              {/* Summary row */}
-              <button
-                className="w-full flex items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-white/5"
-                style={{ background: "var(--bg-surface)" }}
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--border-dim)" }}
+            >
+              {/* Collapsed row */}
+              <motion.button
                 onClick={() => setOpenIndex(isOpen ? null : i)}
+                className="w-full flex items-center gap-4 px-4 py-3 text-left transition-colors"
+                style={{ background: isOpen ? "var(--bg-elevated)" : "var(--bg-surface)" }}
+                whileHover={{ background: "var(--bg-hover)" }}
+                transition={{ duration: 0.15 }}
               >
+                {/* Rank number */}
                 <span
-                  className="text-sm font-bold w-6 shrink-0 text-center"
-                  style={{ color: "var(--text-muted)" }}
+                  className="text-sm font-bold w-6 text-center shrink-0"
+                  style={{ color: "var(--text-3)" }}
                 >
-                  #{i + 1}
+                  {i + 1}
                 </span>
-                <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+
+                {/* Title */}
+                <span
+                  className="flex-1 text-sm font-medium truncate"
+                  style={{ color: "var(--text-1)" }}
+                >
                   {product.title}
                 </span>
-                <span className="text-sm font-semibold shrink-0" style={{ color: "var(--text-secondary)" }}>
+
+                {/* Price */}
+                <span className="text-sm shrink-0 hidden sm:block" style={{ color: "var(--text-2)" }}>
                   {product.price ?? "N/A"}
                 </span>
+
+                {/* Score badge */}
                 <span
-                  className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                  className="text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 font-mono"
                   style={{
-                    background: overall >= 8 ? "#064E3B" : overall >= 5 ? "#451A03" : "#450A0A",
-                    color: overall >= 8 ? "#10B981" : overall >= 5 ? "#F59E0B" : "#EF4444",
+                    background: `${color}18`,
+                    color,
+                    border: `1px solid ${color}30`,
                   }}
                 >
                   {overall.toFixed(1)}
                 </span>
-                <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
-                  {isOpen ? "▲" : "▼"}
-                </span>
-              </button>
+
+                {/* Chevron */}
+                <motion.span
+                  animate={{ rotate: isOpen ? 180 : 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-xs shrink-0"
+                  style={{ color: "var(--text-3)" }}
+                >
+                  ▼
+                </motion.span>
+              </motion.button>
 
               {/* Expanded card */}
-              {isOpen && (
-                <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
-                  <ProductCard product={product} rank={i} />
-                </div>
-              )}
-            </div>
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    style={{ overflow: "hidden", borderTop: "1px solid var(--border-dim)" }}
+                  >
+                    <ProductCard product={product} rank={i} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           )
         })}
       </div>

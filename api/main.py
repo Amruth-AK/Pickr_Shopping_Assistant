@@ -41,6 +41,7 @@ def _initial_state(query: str, max_price: Optional[float], requirements: str) ->
         "detailed_products": [],
         "ranked_products": [],
         "recommendations": [],
+        "analysis_summary": "",
         "status": {},
         "durations_ms": {},
     }
@@ -81,6 +82,7 @@ async def _run_search(req: SearchRequest):
             "processed_query": state.get("processed_query", {}),
             "recommendations": state.get("recommendations", []),
             "ranked_products": state.get("ranked_products", []),
+            "analysis_summary": state.get("analysis_summary", ""),
             "durations_ms": state.get("durations_ms", {}),
         }
     })

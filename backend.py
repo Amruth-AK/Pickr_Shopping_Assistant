@@ -34,6 +34,22 @@ def _get_tavily_client() -> AsyncTavilyClient:
     return _tavily_client
 
 LOG_FILE = "search_log.jsonl"
+DEBUG_LOG_FILE = "debug_pipeline.jsonl"
+
+
+def _debug_log(session_id: str, stage: str, data: Any) -> None:
+    """Append a single pipeline stage snapshot to the debug log."""
+    try:
+        record = {
+            "session_id": session_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": stage,
+            "data": data,
+        }
+        with open(DEBUG_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except Exception as e:
+        logger.error(f"Debug log write failed ({stage}): {e}")
 
 # Limit concurrent Tavily calls to avoid free-tier rate limits
 # Created lazily per event loop to avoid "bound to a different event loop" errors
@@ -97,9 +113,9 @@ _SYSTEM_SPECS = (
     "You extract product specifications from raw web content for an English-language shopping app.\n"
     "For each product, output ONE JSON object with exactly these keys:\n"
     "- title: string, copy verbatim from the input.\n"
-    "- key_features: 3-5 short Title Case strings (specs only — RAM, weight, sensor type, etc.).\n"
-    "- pros: 2-4 short strings; when possible, anchor each to the user's stated requirements.\n"
-    "- cons: 2-4 short strings; each must be a real drawback (not 'may be expensive').\n"
+    "- key_features: 5-10 short Title Case strings (specs only — RAM, weight, sensor type, etc.).\n"
+    "- pros: short strings; when possible, anchor each to the user's stated requirements.\n"
+    "- cons: short strings; each must be a real drawback (not 'may be expensive', not 'No information provided'). If a genuine con cannot be found, infer one from the specs (e.g. heavy weight, slow charging, small screen).\n"
     "- summary: one sentence, max 25 words.\n"
     "Rules:\n"
     "- Only state facts present in the provided Info. If a spec is missing, omit it — do not invent.\n"
@@ -113,9 +129,16 @@ _SYSTEM_RANK = (
     "Respond with one JSON object and nothing else. No markdown, no commentary."
 )
 
+_SYSTEM_ANALYSIS = (
+    "You are a sharp, opinionated shopping assistant writing a brief analysis for a user. "
+    "Be direct, specific, and human — no filler phrases, no generic superlatives. "
+    "Respond with plain prose only. No markdown, no bullet points, no JSON."
+)
+
 
 class ProductState(TypedDict):
     """State for the shopping assistant workflow"""
+    session_id: str
     query: str
     max_price: Optional[float]
     additional_requirements: str
@@ -124,6 +147,7 @@ class ProductState(TypedDict):
     detailed_products: List[Dict[str, Any]]
     ranked_products: List[Dict[str, Any]]
     recommendations: List[Dict[str, Any]]
+    analysis_summary: str
     status: Dict[str, str]
     durations_ms: Dict[str, float]
 
@@ -272,6 +296,10 @@ class ShoppingGraph:
             )
 
             result = self._llm_call(prompt, _SYSTEM_QUERY, temperature=0.2)
+            _debug_log(state.get("session_id", "unknown"), "1_query_rewrite", {
+                "prompt": prompt,
+                "llm_raw_output": result,
+            })
 
             translated = re.search(r"^Translated:\s*(.+)$", result, re.MULTILINE)
             restructured = re.search(r"^Restructured:\s*(.+)$", result, re.MULTILINE)
@@ -354,7 +382,7 @@ class ShoppingGraph:
                 "api_key": serpapi_key,
                 "engine": "google_shopping",
                 "q": state["processed_query"]["restructured"],
-                "num": 20,
+                "num": 5,
                 "gl": "us",
                 "hl": "en",
                 "condition": "new",   # filter to new products only
@@ -362,7 +390,7 @@ class ShoppingGraph:
 
             search = GoogleSearch(params)
             results = search.get_dict()
-            product_results = results.get("shopping_results", [])[:20]
+            product_results = results.get("shopping_results", [])[:5]
 
             products = []
             for r in product_results:
@@ -395,6 +423,24 @@ class ShoppingGraph:
 
             products = self._deduplicate_products(products)
             state["products"] = products
+            _debug_log(state.get("session_id", "unknown"), "2_serp_results", {
+                "query_sent": state["processed_query"]["restructured"],
+                "raw_count": len(product_results),
+                "after_dedup_count": len(products),
+                "products": [
+                    {
+                        "title": p["title"],
+                        "source": p["source"],
+                        "price": p["price"],
+                        "rating": p["rating"],
+                        "reviews": p["reviews"],
+                        "url": p["url"],
+                        "image": p["image"],
+                        "extensions": p["extensions"],
+                    }
+                    for p in products
+                ],
+            })
             state["status"]["search_products"] = f"Completed: Found {len(products)} products"
             state["status"]["extract_specifications"] = "Pending"
             state["durations_ms"]["search_products"] = round((time.time() - _t0) * 1000)
@@ -601,13 +647,26 @@ class ShoppingGraph:
             f"Tavily fetch complete: {len(products_preloaded)} from extract, "
             f"{len(searched_products)} from search"
         )
+        _debug_log(state.get("session_id", "unknown"), "3_tavily_fetch", {
+            "preloaded_count": len(products_preloaded),
+            "searched_count": len(searched_products),
+            "products": [
+                {
+                    "title": p["title"],
+                    "fetch_method": "extract" if p in products_preloaded else "search",
+                    "content_chars": len(p.get("_raw_content", "")),
+                    "raw_content": p.get("_raw_content", ""),
+                }
+                for p in products_with_content
+            ],
+        })
 
         # Step 2: Batch LLM calls — smaller batches + tighter content when on Groq
         # Groq free tier: 6K TPM. 3 products × 600 chars ≈ 1500 tokens + overhead ≈ 2200/call,
         # leaving headroom for 2 calls/min before hitting the limit.
         if _hf_credits_exhausted:
-            batch_size = 3
-            content_cap = 900
+            batch_size = 5
+            content_cap = 1500
         else:
             batch_size = 5
             content_cap = 2500
@@ -641,14 +700,34 @@ class ShoppingGraph:
             )
 
 
+            batch_num = i // batch_size + 1
             try:
                 raw_response = self._llm_call(prompt, _SYSTEM_SPECS, temperature=0.1, json_mode=True)
                 parsed = self._parse_json_response(raw_response)
-                # Normalise: accept a bare dict (single product) wrapped in a list
+                # Unwrap {"products": [...]} if the LLM added a wrapper key
                 if isinstance(parsed, dict):
+                    parsed = parsed.get("products", parsed.get("items", [parsed]))
+                if not isinstance(parsed, list):
                     parsed = [parsed]
+                _debug_log(state.get("session_id", "unknown"), f"4_spec_extraction_batch_{batch_num}", {
+                    "batch_titles": [p["title"] for p in batch],
+                    "content_cap": content_cap,
+                    "prompt": prompt,
+                    "llm_raw_response": raw_response,
+                    "parsed_ok": True,
+                    "parsed_count": len(parsed),
+                    "parsed": parsed,
+                })
             except Exception as e:
-                logger.error(f"Spec extraction LLM failed for batch {i // batch_size + 1}: {e}")
+                logger.error(f"Spec extraction LLM failed for batch {batch_num}: {e}")
+                _debug_log(state.get("session_id", "unknown"), f"4_spec_extraction_batch_{batch_num}", {
+                    "batch_titles": [p["title"] for p in batch],
+                    "content_cap": content_cap,
+                    "prompt": prompt,
+                    "llm_raw_response": raw_response if 'raw_response' in dir() else None,
+                    "parsed_ok": False,
+                    "error": str(e),
+                })
                 parsed = []
 
             # Map parsed results back to products by title (fuzzy match)
@@ -830,17 +909,20 @@ class ShoppingGraph:
                 {
                     "title": p["title"],
                     "price": p.get("price", "N/A"),
-                    "key_features": p.get("structured_details", {}).get("key_features", [])[:5],
-                    "pros": p.get("structured_details", {}).get("pros", [])[:3],
-                    "cons": p.get("structured_details", {}).get("cons", [])[:3],
+                    "key_features": p.get("structured_details", {}).get("key_features", [])[:10],
+                    "pros": p.get("structured_details", {}).get("pros", [])[:10],
+                    "cons": p.get("structured_details", {}).get("cons", [])[:10],
                     "summary": p.get("structured_details", {}).get("summary", ""),
                 }
                 for p in candidates
             ]
 
+            budget_line = (
+                f'Budget: ${state["max_price"]}' if state.get("max_price") else "Budget: not specified"
+            )
             prompt = (
                 f'User query: "{state["query"]}"\n'
-                f'Budget: {state["max_price"]} dollars (context only — do not score on price)\n'
+                f'{budget_line}\n'
                 f'Requirements: {state["additional_requirements"] or "(none specified)"}\n\n'
                 f'Products:\n{json.dumps(llm_input, indent=2)}\n\n'
                 "For each product return:\n"
@@ -852,19 +934,37 @@ class ShoppingGraph:
                 "- quality (1-10) for its category. Anchors:\n"
                 "    1-3 entry-level, 4-6 average, 7-8 strong, 9-10 best-in-class.\n"
                 "    Use the full range — the best in THIS batch should score 9 or 10, the worst 3 or 4.\n"
-                "- reason (one sentence, max 25 words): explain what makes THIS product stand out from the others — "
-                "its unique advantage, best trade-off, or strongest differentiator relative to the user's needs. "
-                "Do not restate the user's requirement back to them. Do not write generic praise and do not end with filler phrases like 'make it a top contender'.\n\n"
-                "Tie-breaker: if two products are equivalent, prefer the one whose pros better match the user's requirements.\n\n"
+                "- value_for_money (1-10): how good is this product's price relative to what you get.\n"
+                "    Consider the user's budget, the product's specs/features, and what competitors charge.\n"
+                "    If no budget is given, judge purely on price vs. feature quality in this category.\n"
+                "    Use the full range — spread scores across products rather than clustering them.\n"
+                "- reason (one sentence, max 25 words): The standout reason to consider this product. \n"
+                "   Don't mention the name of the product and things like 'it meets the user's requirements.'"
+                "   Focus on the most distinctive positive aspect that would matter to the user based on their query and requirements.\n"
+                "   Don't just repeat the specs — explain why it matters given the user's needs. Don't use generic phrases like 'great for most users'.\n\n"
                 'Respond with: {"products": [{"title": "exact title", '
-                '"matching_requirements": N, "quality": N, "reason": "..."}]}'
+                '"matching_requirements": N, "quality": N, "value_for_money": N, "reason": "..."}]}'
             )
 
             try:
                 raw = self._llm_call(prompt, _SYSTEM_RANK, temperature=0.3, json_mode=True)
                 llm_data = self._parse_json_response(raw)
+                _debug_log(state.get("session_id", "unknown"), "5_ranking", {
+                    "candidate_count": len(candidates),
+                    "prompt": prompt,
+                    "llm_raw_response": raw,
+                    "parsed_ok": True,
+                    "parsed": llm_data,
+                })
             except Exception as e:
                 logger.error(f"Ranking LLM failed: {e}")
+                _debug_log(state.get("session_id", "unknown"), "5_ranking", {
+                    "candidate_count": len(candidates),
+                    "prompt": prompt,
+                    "llm_raw_response": raw if 'raw' in dir() else None,
+                    "parsed_ok": False,
+                    "error": str(e),
+                })
                 llm_data = {"products": []}
 
             # Build lookup: title → LLM output
@@ -890,13 +990,13 @@ class ShoppingGraph:
 
                 matching = float(llm.get("matching_requirements", 5))
                 quality  = float(llm.get("quality", 5))
-                price_s  = det["price_score"]
+                value    = float(llm.get("value_for_money", det["price_score"]))
                 rating_s = det["rating_score"]
 
                 overall = round(
                     quality   * 0.35
                     + matching  * 0.30
-                    + price_s   * 0.20
+                    + value     * 0.20
                     + rating_s  * 0.15,
                     1,
                 )
@@ -911,7 +1011,7 @@ class ShoppingGraph:
                         "scores": {
                             "quality":                round(quality,  1),
                             "matching_requirements":  round(matching, 1),
-                            "value_for_money":        round(price_s,  1),
+                            "value_for_money":        round(value,    1),
                             "rating_score":           round(rating_s, 1),
                             "overall_score":          overall,
                         },
@@ -925,17 +1025,61 @@ class ShoppingGraph:
                 reverse=True,
             )
 
-            # Step 5: top 3 become recommendations
+            # Step 5: assign recommendation_reason to all top-10 products, top 3 become recommendations
+            for p in ranked[:10]:
+                p["recommendation_reason"] = (
+                    p["analysis"]["reason"] or p.get("structured_details", {}).get("summary", "")
+                )
             top3 = ranked[:3]
             recommendations_lines = ["Top Recommendations:\n"]
             for p in top3:
-                reason = p["analysis"]["reason"] or p.get("structured_details", {}).get("summary", "")
-                p["recommendation_reason"] = reason
                 recommendations_lines.append(p["title"])
-                recommendations_lines.append(f": {reason}\n")
+                recommendations_lines.append(f": {p['recommendation_reason']}\n")
+
+            # Step 6: generate a short analysis paragraph for the top 3
+            analysis_summary = ""
+            try:
+                top3_info = []
+                for i, p in enumerate(top3):
+                    scores = p.get("analysis", {}).get("scores", {})
+                    details = p.get("structured_details", {})
+                    top3_info.append({
+                        "rank": i + 1,
+                        "title": p["title"],
+                        "price": p.get("price", "N/A"),
+                        "reason": p["recommendation_reason"],
+                        "pros": details.get("pros", [])[:3],
+                        "cons": details.get("cons", [])[:2],
+                        "scores": {
+                            "overall": round(scores.get("overall_score", 0), 1),
+                            "quality": scores.get("quality", 0),
+                            "value": scores.get("value_for_money", 0),
+                            "matching": scores.get("matching_requirements", 0),
+                        },
+                    })
+                budget_line = f'Budget: ${state["max_price"]}' if state.get("max_price") else "Budget: not specified"
+                analysis_prompt = (
+                    f'User query: "{state["query"]}"\n'
+                    f'{budget_line}\n'
+                    f'Requirements: {state["additional_requirements"] or "(none specified)"}\n\n'
+                    f'Top 3 products:\n{json.dumps(top3_info, indent=2)}\n\n'
+                    "Write 2–3 sentences for the user:\n"
+                    "1. A varied, natural opener (never start with 'Here are') that sets up what was found — "
+                    "reference the query or a key trade-off discovered across the results.\n"
+                    "2. A decision guide for the top 3: for each product, one clause explaining who should pick it "
+                    "over the others — based on a concrete differentiator (e.g. screen size vs. battery life, "
+                    "raw power vs. portability). Use 'if you want X, go with #1; if Y matters more, #2 is better' style.\n"
+                    "Keep it under 200 words. Be specific — name the actual differentiating feature, not generic praise."
+                )
+                analysis_summary = self._llm_call(
+                    analysis_prompt, _SYSTEM_ANALYSIS, max_tokens=200, temperature=0.7
+                )
+            except Exception as e:
+                logger.warning(f"Analysis summary generation failed: {e}")
 
             state["ranked_products"]        = ranked[:10]
             state["recommendations"]        = top3
+            state["analysis_summary"]       = analysis_summary
             state["status"]["rank_products"] = (
                 f"Completed: Ranked {len(ranked)} products, top 3 recommended"
             )
@@ -947,6 +1091,7 @@ class ShoppingGraph:
             logger.error(f"Error in rank_products_node: {e}")
             state["ranked_products"]        = state["detailed_products"][:10]
             state["recommendations"]        = state["detailed_products"][:3]
+            state["analysis_summary"]       = ""
             state["status"]["rank_products"] = f"Failed: {e}"
             state["status"]["generate_recommendations"] = "Failed"
             state["durations_ms"]["rank_products"] = round((time.time() - _t0) * 1000)
