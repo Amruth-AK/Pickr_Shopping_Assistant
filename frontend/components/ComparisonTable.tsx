@@ -16,9 +16,9 @@ interface ComparisonTableProps {
 }
 
 const RANK = [
-  { label: "Best Pick",     bg: "var(--rank-1-bg)", color: "var(--rank-1-text)" },
-  { label: "Runner-Up",     bg: "var(--rank-2-bg)", color: "var(--rank-2-text)" },
-  { label: "Also Consider", bg: "var(--rank-3-bg)", color: "var(--rank-3-text)" },
+  { label: "Best Pick",     bg: "var(--rank-1-bg)", color: "var(--rank-1-text)", border: "rgba(52,211,153,0.25)" },
+  { label: "Runner-Up",     bg: "var(--rank-2-bg)", color: "var(--rank-2-text)", border: "rgba(96,165,250,0.20)" },
+  { label: "Also Consider", bg: "var(--rank-3-bg)", color: "var(--rank-3-text)", border: "rgba(163,163,163,0.15)" },
 ]
 
 /* ── Expandable list ─────────────────────────────────────────── */
@@ -164,6 +164,7 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
             className="px-5 py-5 flex flex-col items-center gap-3 text-center"
             style={{
               borderLeft: "1px solid var(--border-dim)",
+              borderTop: `2px solid ${RANK[i].border}`,
               background: i === 0 ? "rgba(16,185,129,0.03)" : undefined,
             }}
           >
@@ -401,7 +402,7 @@ function MobileSingleProduct({ p, rank, maxPrice }: { p: Product; rank: number; 
   ]
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border-dim)", background: "var(--bg-surface)" }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${RANK[rank].border}`, borderTopWidth: "2px", background: "var(--bg-surface)" }}>
       {/* Header */}
       <div className="px-5 py-5 flex flex-col items-center gap-3 text-center" style={{ borderBottom: "1px solid var(--border-dim)" }}>
         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full" style={{ background: RANK[rank].bg, color: RANK[rank].color }}>

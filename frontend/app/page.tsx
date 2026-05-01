@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useSearch } from "@/lib/useSearch"
 import { SearchForm } from "@/components/SearchForm"
 import { SearchProgress } from "@/components/SearchProgress"
@@ -8,6 +9,18 @@ import { motion, AnimatePresence } from "framer-motion"
 
 export default function Home() {
   const { search, isLoading, currentStep, currentLabel, results, error } = useSearch()
+  const [showSearch, setShowSearch] = useState(true)
+  const [lastQuery, setLastQuery] = useState("")
+  const [lastMaxPrice, setLastMaxPrice] = useState("")
+
+  function handleSearch(req: { query: string; max_price?: number }) {
+    setLastQuery(req.query)
+    setLastMaxPrice(req.max_price != null ? String(req.max_price) : "")
+    setShowSearch(false)
+    search(req)
+  }
+
+  const hasResults = !!results && !isLoading
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
@@ -51,7 +64,7 @@ export default function Home() {
       </header>
 
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-10 flex flex-col gap-8">
-        {/* Hero — only when idle */}
+        {/* Hero — only when idle with no results */}
         <AnimatePresence>
           {!results && !isLoading && (
             <motion.div
@@ -105,10 +118,27 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* Search form */}
-        <motion.div layout transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-          <SearchForm onSubmit={search} isLoading={isLoading} />
-        </motion.div>
+        {/* Search form — shown when idle or when user toggles it back */}
+        <AnimatePresence>
+          {(showSearch || isLoading) && (
+            <motion.div
+              key="search-form"
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16, scale: 0.98 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              layout
+            >
+              <SearchForm
+                key={lastQuery + lastMaxPrice}
+                onSubmit={handleSearch}
+                isLoading={isLoading}
+                initialQuery={lastQuery}
+                initialMaxPrice={lastMaxPrice}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Progress */}
         <AnimatePresence>
@@ -146,12 +176,37 @@ export default function Home() {
 
         {/* Results */}
         <AnimatePresence>
-          {results && !isLoading && (
+          {hasResults && (
             <motion.div
+              key="results"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              layout
             >
+              {/* Search again button */}
+              {!showSearch && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-6"
+                >
+                  <button
+                    onClick={() => setShowSearch(true)}
+                    className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl transition-all hover:opacity-80"
+                    style={{
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border-mid)",
+                      color: "var(--text-2)",
+                    }}
+                  >
+                    <span style={{ color: "var(--accent-blue)" }}>✦</span>
+                    Search again
+                  </button>
+                </motion.div>
+              )}
+
               <ResultsView results={results} />
             </motion.div>
           )}

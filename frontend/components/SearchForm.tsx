@@ -7,11 +7,13 @@ import type { SearchRequest } from "@/lib/types"
 interface SearchFormProps {
   onSubmit: (req: SearchRequest) => void
   isLoading: boolean
+  initialQuery?: string
+  initialMaxPrice?: string
 }
 
-export function SearchForm({ onSubmit, isLoading }: SearchFormProps) {
-  const [query, setQuery] = useState("")
-  const [maxPrice, setMaxPrice] = useState("")
+export function SearchForm({ onSubmit, isLoading, initialQuery = "", initialMaxPrice = "" }: SearchFormProps) {
+  const [query, setQuery] = useState(initialQuery)
+  const [maxPrice, setMaxPrice] = useState(initialMaxPrice)
   const [focused, setFocused] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
