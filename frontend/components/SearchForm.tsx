@@ -12,7 +12,6 @@ interface SearchFormProps {
 export function SearchForm({ onSubmit, isLoading }: SearchFormProps) {
   const [query, setQuery] = useState("")
   const [maxPrice, setMaxPrice] = useState("")
-  const [requirements, setRequirements] = useState("")
   const [focused, setFocused] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -21,7 +20,6 @@ export function SearchForm({ onSubmit, isLoading }: SearchFormProps) {
     onSubmit({
       query: query.trim(),
       max_price: maxPrice ? parseFloat(maxPrice) : undefined,
-      requirements: requirements.trim(),
     })
   }
 
@@ -58,15 +56,16 @@ export function SearchForm({ onSubmit, isLoading }: SearchFormProps) {
           <label className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
             What are you looking for?
           </label>
-          <input
-            type="text"
+          <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setFocused("query")}
             onBlur={() => setFocused(null)}
-            placeholder='e.g. "gaming laptop with 16GB RAM" or "wireless earbuds for running"'
+            placeholder='e.g. "I am looking for a gaming laptop with at least 16GB RAM and a good display"'
+            rows={3}
             style={{
               ...inputBase,
+              resize: "none",
               ...(focused === "query" ? inputFocused : {}),
             }}
             required
@@ -74,54 +73,31 @@ export function SearchForm({ onSubmit, isLoading }: SearchFormProps) {
           />
         </div>
 
-        {/* Price + Requirements */}
-        <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4">
-          {/* Max Price */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
-              Max price
-            </label>
-            <div className="relative">
-              <span
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm select-none pointer-events-none"
-                style={{ color: "var(--text-3)" }}
-              >
-                $
-              </span>
-              <input
-                type="number"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                onFocus={() => setFocused("price")}
-                onBlur={() => setFocused(null)}
-                placeholder="Any"
-                min={0}
-                style={{
-                  ...inputBase,
-                  paddingLeft: "28px",
-                  ...(focused === "price" ? inputFocused : {}),
-                }}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          {/* Requirements */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
-              Requirements{" "}
-              <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(optional)</span>
-            </label>
+        {/* Max Budget */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
+            Max budget{" "}
+            <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(optional)</span>
+          </label>
+          <div className="relative">
+            <span
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-sm select-none pointer-events-none"
+              style={{ color: "var(--text-3)" }}
+            >
+              $
+            </span>
             <input
-              type="text"
-              value={requirements}
-              onChange={(e) => setRequirements(e.target.value)}
-              onFocus={() => setFocused("req")}
+              type="number"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              onFocus={() => setFocused("price")}
               onBlur={() => setFocused(null)}
-              placeholder='e.g. "15+ hr battery, lightweight, good mic"'
+              placeholder="Any"
+              min={0}
               style={{
                 ...inputBase,
-                ...(focused === "req" ? inputFocused : {}),
+                paddingLeft: "28px",
+                ...(focused === "price" ? inputFocused : {}),
               }}
               disabled={isLoading}
             />

@@ -96,17 +96,17 @@ _hf_credits_exhausted = False
 
 # System messages for each LLM role — kept as constants so they're easy to tune
 _SYSTEM_QUERY = (
-    "You rewrite product searches into clean queries for Google Shopping. "
+    "You convert a user's natural language product description into a clean Google Shopping search query. "
     "Output exactly two lines and nothing else. No quotes, no markdown.\n"
-    "Line 1 — Translated: <query in English; copy verbatim if already English>\n"
-    "Line 2 — Restructured: <one search-friendly query, max 10 words>\n"
+    "Line 1 — Translated: <description in English; copy intent verbatim if already English>\n"
+    "Line 2 — Restructured: <one search-friendly query>\n"
     "Rules:\n"
     "- Preserve brand and model tokens exactly (e.g. 'MacBook Air M3', 'Sony WH-1000XM5').\n"
     "- Place type modifiers BEFORE the product (Gaming, Professional, Waterproof).\n"
     "- Place key specs AFTER the product (16GB RAM, 4K, OLED).\n"
     "- Append 'under X dollars' only if a positive numeric budget is provided.\n"
-    "- Drop conversational filler ('for my mom', 'I need', 'please').\n"
-    "- Do not repeat words; do not invent specs the user did not ask for."
+    "- Drop conversational filler ('I am looking for', 'I need', 'please', 'something that').\n"
+    "- Extract the core product type and key specs from the description — do not invent specs not mentioned."
 )
 
 _SYSTEM_SPECS = (
@@ -116,7 +116,7 @@ _SYSTEM_SPECS = (
     "- key_features: 5-10 short Title Case strings (specs only — RAM, weight, sensor type, etc.).\n"
     "- pros: short strings; when possible, anchor each to the user's stated requirements.\n"
     "- cons: short strings; each must be a real drawback (not 'may be expensive', not 'No information provided'). If a genuine con cannot be found, infer one from the specs (e.g. heavy weight, slow charging, small screen).\n"
-    "- summary: one sentence, max 25 words.\n"
+    "- summary: One or two sentences.\n"
     "Rules:\n"
     "- Only state facts present in the provided Info. If a spec is missing, omit it — do not invent.\n"
     "- Always respond in English regardless of source-content language.\n"
@@ -275,23 +275,22 @@ class ShoppingGraph:
         _t0 = time.time()
         try:
             budget_line = (
-                f"Max Price: {state['max_price']} dollars\n"
+                f"Max Budget: {state['max_price']} dollars\n"
                 if state.get("max_price") and state["max_price"] > 0
                 else ""
             )
             prompt = (
-                f"Basic Query: {state['query']}\n"
+                f"User Description: {state['query']}\n"
                 f"{budget_line}"
-                f"Additional Requirements: {state['additional_requirements']}\n\n"
-                "Examples:\n"
-                "Basic Query: Laptop | Max Price: 1000 dollars | Additional Requirements: 16GB RAM, Gaming\n"
-                "Translated: Laptop\n"
-                "Restructured: Gaming Laptop with 16GB RAM under 1000 dollars\n\n"
-                "Basic Query: Sony WH-1000XM5 | Max Price: 350 dollars | Additional Requirements: noise cancelling\n"
-                "Translated: Sony WH-1000XM5\n"
+                "\nExamples:\n"
+                "User Description: I am looking for a gaming laptop with at least 16GB RAM | Max Budget: 1000 dollars\n"
+                "Translated: I am looking for a gaming laptop with at least 16GB RAM\n"
+                "Restructured: Gaming Laptop 16GB RAM under 1000 dollars\n\n"
+                "User Description: Looking for Sony WH-1000XM5 or similar noise cancelling headphones | Max Budget: 350 dollars\n"
+                "Translated: Looking for Sony WH-1000XM5 or similar noise cancelling headphones\n"
                 "Restructured: Sony WH-1000XM5 Noise Cancelling Headphones under 350 dollars\n\n"
-                "Basic Query: Kaffeemaschine | Additional Requirements: Siebträger\n"
-                "Translated: Coffee Machine\n"
+                "User Description: Ich suche eine Kaffeemaschine mit Siebträger\n"
+                "Translated: I am looking for a coffee machine with a portafilter\n"
                 "Restructured: Espresso Portafilter Coffee Machine"
             )
 
@@ -316,7 +315,7 @@ class ShoppingGraph:
             state["processed_query"] = {
                 "translated": translated_str,
                 "restructured": restructured_str,
-                "original_requirements": state["additional_requirements"],
+                "original_requirements": state["query"],
             }
             state["status"] = {
                 "process_query": "Completed",
@@ -334,7 +333,7 @@ class ShoppingGraph:
             state["processed_query"] = {
                 "translated": state["query"],
                 "restructured": state["query"],
-                "original_requirements": state["additional_requirements"],
+                "original_requirements": state["query"],
             }
             state["status"] = {
                 "process_query": f"Failed: {e}",
@@ -382,7 +381,7 @@ class ShoppingGraph:
                 "api_key": serpapi_key,
                 "engine": "google_shopping",
                 "q": state["processed_query"]["restructured"],
-                "num": 5,
+                "num": 10,
                 "gl": "us",
                 "hl": "en",
                 "condition": "new",   # filter to new products only
@@ -390,7 +389,7 @@ class ShoppingGraph:
 
             search = GoogleSearch(params)
             results = search.get_dict()
-            product_results = results.get("shopping_results", [])[:5]
+            product_results = results.get("shopping_results", [])[:10]
 
             products = []
             for r in product_results:
@@ -687,12 +686,10 @@ class ShoppingGraph:
                     f"   Info: {raw}"
                 )
 
-            user_query = state.get("query", "")
-            user_requirements = state.get("additional_requirements", "") or "(none specified)"
-            
+            user_description = state.get("query", "")
+
             prompt = (
-                f"User is shopping for: {user_query}\n"
-                f"User requirements: {user_requirements}\n\n"
+                f"User is shopping for: {user_description}\n\n"
                 "Extract specifications for each product below. "
                 "When writing pros and cons, prefer points that relate to the user's requirements.\n\n"
                 + "\n\n".join(product_blocks)
@@ -921,24 +918,22 @@ class ShoppingGraph:
                 f'Budget: ${state["max_price"]}' if state.get("max_price") else "Budget: not specified"
             )
             prompt = (
-                f'User query: "{state["query"]}"\n'
-                f'{budget_line}\n'
-                f'Requirements: {state["additional_requirements"] or "(none specified)"}\n\n'
+                f'User description: "{state["query"]}"\n'
+                f'{budget_line}\n\n'
                 f'Products:\n{json.dumps(llm_input, indent=2)}\n\n'
                 "For each product return:\n"
-                "- matching_requirements (1-10): how well it satisfies the user's stated requirements.\n"
-                "    10 = all requirements clearly met.\n"
+                "- matching_requirements (1-10): how well it satisfies the user's stated needs.\n"
+                "    10 = all needs clearly met.\n"
                 "    5 = some met, some unknown.\n"
-                "    1 = a stated requirement is contradicted.\n"
-                "    If no requirements are given, return 7.\n"
+                "    1 = a stated need is contradicted.\n"
+                "    If no specific needs are described, return 7.\n"
                 "- quality (1-10) for its category. Anchors:\n"
                 "    1-3 entry-level, 4-6 average, 7-8 strong, 9-10 best-in-class.\n"
                 "    Use the full range — the best in THIS batch should score 9 or 10, the worst 3 or 4.\n"
                 "- value_for_money (1-10): how good is this product's price relative to what you get.\n"
-                "    Consider the user's budget, the product's specs/features, and what competitors charge.\n"
+                "    Consider the user's budget, the product's specs/features.\n"
                 "    If no budget is given, judge purely on price vs. feature quality in this category.\n"
-                "    Use the full range — spread scores across products rather than clustering them.\n"
-                "- reason (one sentence, max 25 words): The standout reason to consider this product. \n"
+                "- reason (one or two sentences): The standout reason to consider this product. \n"
                 "   Don't mention the name of the product and things like 'it meets the user's requirements.'"
                 "   Focus on the most distinctive positive aspect that would matter to the user based on their query and requirements.\n"
                 "   Don't just repeat the specs — explain why it matters given the user's needs. Don't use generic phrases like 'great for most users'.\n\n"
@@ -1059,9 +1054,8 @@ class ShoppingGraph:
                     })
                 budget_line = f'Budget: ${state["max_price"]}' if state.get("max_price") else "Budget: not specified"
                 analysis_prompt = (
-                    f'User query: "{state["query"]}"\n'
-                    f'{budget_line}\n'
-                    f'Requirements: {state["additional_requirements"] or "(none specified)"}\n\n'
+                    f'User description: "{state["query"]}"\n'
+                    f'{budget_line}\n\n'
                     f'Top 3 products:\n{json.dumps(top3_info, indent=2)}\n\n'
                     "Write 2–3 sentences for the user:\n"
                     "1. A varied, natural opener (never start with 'Here are') that sets up what was found — "

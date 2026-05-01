@@ -51,5 +51,4 @@ export interface ProgressEvent {
 export interface SearchRequest {
   query: string
   max_price?: number
-  requirements: string
 }

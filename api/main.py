@@ -28,14 +28,13 @@ app.add_middleware(
 class SearchRequest(BaseModel):
     query: str
     max_price: Optional[float] = None
-    requirements: str = ""
 
 
-def _initial_state(query: str, max_price: Optional[float], requirements: str) -> dict:
+def _initial_state(query: str, max_price: Optional[float]) -> dict:
     return {
         "query": query,
         "max_price": max_price,
-        "additional_requirements": requirements,
+        "additional_requirements": "",
         "products": [],
         "processed_query": {},
         "detailed_products": [],
@@ -58,7 +57,7 @@ async def _run_search(req: SearchRequest):
     yield _sse({"step": 1, "label": "Processing your query..."})
 
     graph = ShoppingGraph()
-    state = _initial_state(req.query, req.max_price, req.requirements)
+    state = _initial_state(req.query, req.max_price)
 
     state = await graph._process_query_node(state)
     yield _sse({"step": 2, "label": "Searching Google Shopping..."})
