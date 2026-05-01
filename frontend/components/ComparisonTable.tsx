@@ -65,19 +65,11 @@ function ExpandableList({
 }
 
 /* ── Row-based layout ────────────────────────────────────────── */
-/*
-  Structure: one <div> per row, using CSS Grid with the same 4-column
-  template as the outer container. This way the browser sizes every
-  product cell in the row together — guaranteed alignment.
-
-  outer wrapper: display:grid  grid-template-columns: 148px 1fr 1fr 1fr
-  each Row:      display:contents  (its children participate in the outer grid)
-*/
 
 interface RowProps {
   label: string
-  cells: React.ReactNode[]   // one element per product column
-  isFirst?: boolean          // suppress top border on first data row
+  cells: React.ReactNode[]   
+  isFirst?: boolean          
 }
 
 function Row({ label, cells, isFirst }: RowProps) {

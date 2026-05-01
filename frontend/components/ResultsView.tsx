@@ -16,25 +16,6 @@ export function ResultsView({ results, maxPrice }: ResultsViewProps) {
 
   return (
     <div className="flex flex-col gap-10">
-      {/* Query banner */}
-      {query && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm"
-          style={{
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-dim)",
-            color: "var(--text-2)",
-          }}
-        >
-          <span style={{ color: "var(--text-3)" }}>✦</span>
-          Showing results for{" "}
-          <strong style={{ color: "var(--text-1)", fontWeight: 600 }}>{query}</strong>
-        </motion.div>
-      )}
-
       {/* Analysis summary */}
       {analysis_summary && (
         <motion.p
