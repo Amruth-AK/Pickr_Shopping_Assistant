@@ -14,7 +14,7 @@ const LOGO_STYLES = {
   fontWeight: 700,
   fontVariationSettings: '"opsz" 144, "SOFT" 50',
   letterSpacing: "-0.02em",
-  background: "linear-gradient(135deg, #1e1b4b 0%, #4338ca 55%, #7c3aed 100%)",
+  background: "linear-gradient(135deg, #0f0a1e 0%, #3b1fa8 50%, #5b21b6 100%)",
   WebkitBackgroundClip: "text",
   WebkitTextFillColor: "transparent",
   backgroundClip: "text",
@@ -191,30 +191,51 @@ export default function Home() {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               layout
             >
-              {!showSearch && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="mb-6"
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="flex justify-end mb-6"
+              >
+                <motion.button
+                  onClick={handleReset}
+                  whileHover={{ background: "linear-gradient(135deg, rgba(79,70,229,0.3), rgba(124,58,237,0.3))", borderColor: "rgba(124,58,237,0.4)", color: "#f0ecff" }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "#d6d3e2",
+                    backdropFilter: "blur(8px)",
+                  }}
                 >
-                  <button
-                    onClick={() => setShowSearch(true)}
-                    className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl transition-all hover:opacity-80"
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      color: "#d6d3e2",
-                      backdropFilter: "blur(8px)",
-                    }}
-                  >
-                    <span style={{ color: "#a78bfa" }}>✦</span>
-                    Search again
-                  </button>
-                </motion.div>
-              )}
+                  ← New Search
+                </motion.button>
+              </motion.div>
 
               <ResultsView results={results} />
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="flex justify-end mt-6"
+              >
+                <motion.button
+                  onClick={handleReset}
+                  whileHover={{ background: "linear-gradient(135deg, rgba(79,70,229,0.3), rgba(124,58,237,0.3))", borderColor: "rgba(124,58,237,0.4)", color: "#f0ecff" }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "#d6d3e2",
+                    backdropFilter: "blur(8px)",
+                  }}
+                >
+                  ← New Search
+                </motion.button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

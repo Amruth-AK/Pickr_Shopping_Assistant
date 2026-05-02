@@ -27,12 +27,12 @@ export function ResultsView({ results, maxPrice }: ResultsViewProps) {
             border: "1px solid var(--border-mid)",
           }}
         >
-          <h2
-            className="text-sm font-semibold uppercase tracking-widest mb-3"
-            style={{ color: "var(--text-3)" }}
-          >
-            Analysis
-          </h2>
+          <div className="flex items-center gap-2 mb-3">
+            <span style={{ fontSize: "16px" }}>✦</span>
+            <h2 className="text-base font-semibold" style={{ color: "var(--text-1)" }}>
+              AI Summary
+            </h2>
+          </div>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-2)" }}>
             {analysis_summary}
           </p>

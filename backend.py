@@ -381,7 +381,7 @@ class ShoppingGraph:
                 "api_key": serpapi_key,
                 "engine": "google_shopping",
                 "q": state["processed_query"]["restructured"],
-                "num": 10,
+                "num": 20,
                 "gl": "us",
                 "hl": "en",
                 "condition": "new",   # filter to new products only
@@ -389,7 +389,7 @@ class ShoppingGraph:
 
             search = GoogleSearch(params)
             results = search.get_dict()
-            product_results = results.get("shopping_results", [])[:10]
+            product_results = results.get("shopping_results", [])[:20]
 
             products = []
             for r in product_results:
@@ -1063,7 +1063,8 @@ class ShoppingGraph:
                     "2. A decision guide for the top 3: for each product, one clause explaining who should pick it "
                     "over the others — based on a concrete differentiator (e.g. screen size vs. battery life, "
                     "raw power vs. portability). Use 'if you want X, go with #1; if Y matters more, #2 is better' style.\n"
-                    "Keep it under 200 words. Be specific — name the actual differentiating feature, not generic praise."
+                    "Keep it under 200 words. Be specific — name the actual differentiating feature, not generic praise.\n"
+                    "Don't end with things like 'thanks', 'thanks for reading' or 'hope this helps' — just the analysis."
                 )
                 analysis_summary = self._llm_call(
                     analysis_prompt, _SYSTEM_ANALYSIS, max_tokens=200, temperature=0.7

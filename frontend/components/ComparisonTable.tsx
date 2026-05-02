@@ -24,7 +24,7 @@ const RANK = [
 /* ── Expandable list ─────────────────────────────────────────── */
 function ExpandableList({
   items,
-  max = 4,
+  max = 10,
   check,
 }: {
   items: string[]
@@ -87,7 +87,7 @@ function Row({ label, cells, isFirst }: RowProps) {
           paddingBottom: "14px",
         }}
       >
-        <span className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
+        <span className="text-xs font-semibold" style={{ color: "var(--text-1)" }}>
           {label}
         </span>
       </div>
@@ -98,7 +98,7 @@ function Row({ label, cells, isFirst }: RowProps) {
           key={i}
           className="px-5 flex items-start"
           style={{
-            background: i === 0 ? "var(--rank-1-wash)" : undefined,
+            background: undefined,
             borderTop,
             borderLeft: "1px solid var(--border-dim)",
             paddingTop: "14px",
@@ -153,7 +153,7 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
           className="sticky left-0 z-10 px-4 py-5 flex items-end"
           style={{ background: "var(--bg-surface)" }}
         >
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-2)" }}>
             Compare
           </span>
         </div>
@@ -169,7 +169,7 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
             style={{
               borderLeft: "1px solid var(--border-dim)",
               borderTop: `2px solid ${RANK[i].border}`,
-              background: i === 0 ? "var(--rank-1-wash)" : undefined,
+              background: undefined,
             }}
           >
             <span
@@ -311,25 +311,27 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
             key={i}
             className="px-5 py-4"
             style={{
-              background: i === 0 ? "var(--rank-1-wash)" : undefined,
+              background: undefined,
               borderTop: "1px solid var(--border-dim)",
               borderLeft: "1px solid var(--border-dim)",
             }}
           >
             {p.url ? (
-              <a
+              <motion.a
                 href={p.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-center text-xs font-semibold py-2 px-3 rounded-lg transition-all hover:opacity-80"
+                whileHover={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "#ffffff", borderColor: "transparent" }}
+                transition={{ duration: 0.2 }}
+                className="block text-center text-xs font-semibold py-2 px-3 rounded-lg"
                 style={{
-                  background: i === 0 ? "var(--accent-green)" : "var(--bg-elevated)",
-                  color: i === 0 ? "#fff" : "var(--text-1)",
-                  border: i === 0 ? "none" : "1px solid var(--border-mid)",
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-1)",
+                  border: "1px solid var(--border-mid)",
                 }}
               >
                 View Product →
-              </a>
+              </motion.a>
             ) : (
               <span className="text-xs" style={{ color: "var(--text-3)" }}>No link</span>
             )}
@@ -424,7 +426,7 @@ function MobileSingleProduct({ p, rank, maxPrice }: { p: Product; rank: number; 
       {rows.map((row, i) => (
         <div key={row.label} className="grid" style={{ gridTemplateColumns: "108px 1fr", borderTop: "1px solid var(--border-dim)" }}>
           <div className="px-4 py-3.5 flex items-center" style={{ background: "var(--bg-elevated)" }}>
-            <span className="text-xs font-medium" style={{ color: "var(--text-2)" }}>{row.label}</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--text-1)" }}>{row.label}</span>
           </div>
           <div className="px-4 py-3.5 flex items-start">{row.content}</div>
         </div>
@@ -432,11 +434,17 @@ function MobileSingleProduct({ p, rank, maxPrice }: { p: Product; rank: number; 
       {/* Action */}
       <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border-dim)" }}>
         {p.url
-          ? <a href={p.url} target="_blank" rel="noopener noreferrer"
+          ? <motion.a
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "#ffffff", borderColor: "transparent" }}
+              transition={{ duration: 0.2 }}
               className="block text-center text-xs font-semibold py-2 px-3 rounded-lg"
-              style={{ background: rank === 0 ? "var(--accent-green)" : "var(--bg-elevated)", color: rank === 0 ? "#fff" : "var(--text-1)", border: rank === 0 ? "none" : "1px solid var(--border-mid)" }}>
+              style={{ background: "var(--bg-elevated)", color: "var(--text-1)", border: "1px solid var(--border-mid)" }}
+            >
               View Product →
-            </a>
+            </motion.a>
           : <span className="text-xs" style={{ color: "var(--text-3)" }}>No link</span>
         }
       </div>
@@ -474,16 +482,6 @@ export function ComparisonTable({ products, maxPrice }: ComparisonTableProps) {
         <h2 className="text-lg font-semibold" style={{ color: "#f0f0f0" }}>
           Top Recommendations
         </h2>
-        <span
-          className="text-xs px-2 py-0.5 rounded-full font-medium"
-          style={{
-            background: "rgba(16,185,129,0.15)",
-            color: "#34d399",
-            border: "1px solid rgba(16,185,129,0.30)",
-          }}
-        >
-          {top3.length} compared
-        </span>
       </div>
 
       <div className="hidden md:block">
