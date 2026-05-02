@@ -239,14 +239,13 @@ export default function Home() {
               >
                 <motion.button
                   onClick={handleReset}
-                  whileHover={{ background: "linear-gradient(135deg, rgba(79,70,229,0.3), rgba(124,58,237,0.3))", borderColor: "rgba(124,58,237,0.4)", color: "#f0ecff" }}
+                  whileHover={{ background: "#15131c", color: "#e8e4f0", borderColor: "#e8e4f0" }}
                   transition={{ duration: 0.2 }}
                   className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl"
                   style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "#d6d3e2",
-                    backdropFilter: "blur(8px)",
+                    background: "#e8e4f0",
+                    color: "#15131c",
+                    border: "1px solid #c4bdda",
                   }}
                 >
                   ← New Search
@@ -263,14 +262,13 @@ export default function Home() {
               >
                 <motion.button
                   onClick={handleReset}
-                  whileHover={{ background: "linear-gradient(135deg, rgba(79,70,229,0.3), rgba(124,58,237,0.3))", borderColor: "rgba(124,58,237,0.4)", color: "#f0ecff" }}
+                  whileHover={{ background: "#15131c", color: "#e8e4f0", borderColor: "#e8e4f0" }}
                   transition={{ duration: 0.2 }}
                   className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl"
                   style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "#d6d3e2",
-                    backdropFilter: "blur(8px)",
+                    background: "#e8e4f0",
+                    color: "#15131c",
+                    border: "1px solid #c4bdda",
                   }}
                 >
                   ← New Search

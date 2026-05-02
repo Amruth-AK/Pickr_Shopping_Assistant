@@ -134,7 +134,7 @@ export function ProductCard({ product, rank }: ProductCardProps) {
             className="text-xs font-medium self-start"
             style={{ color: "var(--accent-blue)" }}
           >
-            View on retailer →
+            View Product →
           </a>
         )}
       </div>

@@ -22,16 +22,73 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
-serpapi_key = os.getenv("SERPAPI_KEY")
-_TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+# ── SerpAPI key rotation ─────────────────────────────────────────────────────
+_SERPAPI_KEYS: List[str] = [
+    k for k in [
+        os.getenv("SERPAPI_KEY_1"),
+        os.getenv("SERPAPI_KEY_2"),
+    ] if k
+]
+if not _SERPAPI_KEYS:
+    raise RuntimeError("No SerpAPI keys found. Set SERPAPI_KEY_1 / SERPAPI_KEY_2 in .env")
+_serpapi_key_index = 0
+
+def _get_serpapi_key() -> str:
+    return _SERPAPI_KEYS[_serpapi_key_index % len(_SERPAPI_KEYS)]
+
+def _rotate_serpapi_key(reason: str = "") -> bool:
+    """Advance to the next SerpAPI key. Returns False if all keys are exhausted."""
+    global _serpapi_key_index
+    _serpapi_key_index += 1
+    if _serpapi_key_index >= len(_SERPAPI_KEYS):
+        logger.error("All SerpAPI keys exhausted.")
+        return False
+    logger.warning(f"SerpAPI key rotated (index {_serpapi_key_index}). Reason: {reason}")
+    return True
+
+# ── Tavily key rotation ──────────────────────────────────────────────────────
+_TAVILY_KEYS: List[str] = [
+    k for k in [
+        os.getenv("TAVILY_API_KEY_1"),
+        os.getenv("TAVILY_API_KEY_2"),
+        os.getenv("TAVILY_API_KEY_3"),
+    ] if k
+]
+if not _TAVILY_KEYS:
+    raise RuntimeError("No Tavily keys found. Set TAVILY_API_KEY_1 / TAVILY_API_KEY_2 / TAVILY_API_KEY_3 in .env")
+_tavily_key_index = 0
 _tavily_client: Optional[AsyncTavilyClient] = None
 
 def _get_tavily_client() -> AsyncTavilyClient:
     global _tavily_client
     loop = asyncio.get_event_loop()
+    current_key = _TAVILY_KEYS[_tavily_key_index % len(_TAVILY_KEYS)]
     if _tavily_client is None or getattr(_tavily_client, "_loop", loop) is not loop:
-        _tavily_client = AsyncTavilyClient(api_key=_TAVILY_API_KEY)
+        _tavily_client = AsyncTavilyClient(api_key=current_key)
     return _tavily_client
+
+def _rotate_tavily_key(reason: str = "") -> bool:
+    """Advance to the next Tavily key, rebuilding the client. Returns False if all exhausted."""
+    global _tavily_key_index, _tavily_client
+    _tavily_key_index += 1
+    if _tavily_key_index >= len(_TAVILY_KEYS):
+        logger.error("All Tavily keys exhausted.")
+        return False
+    _tavily_client = None  # force rebuild with new key
+    logger.warning(f"Tavily key rotated (index {_tavily_key_index}). Reason: {reason}")
+    return True
+
+# ── HuggingFace key rotation ─────────────────────────────────────────────────
+_HF_KEYS: List[str] = [
+    k for k in [
+        os.getenv("HUGGINGFACE_API_TOKEN_1"),
+        os.getenv("HUGGINGFACE_API_TOKEN_2"),
+    ] if k
+]
+if not _HF_KEYS:
+    raise RuntimeError("No HuggingFace keys found. Set HUGGINGFACE_API_TOKEN_1 / HUGGINGFACE_API_TOKEN_2 in .env")
+_hf_key_index = 0
 
 LOG_FILE = "search_log.jsonl"
 DEBUG_LOG_FILE = "debug_pipeline.jsonl"
@@ -154,7 +211,7 @@ class ProductState(TypedDict):
 
 class ShoppingGraph:
     def __init__(self):
-        self.hf_client = InferenceClient(token=os.getenv("HUGGINGFACE_API_TOKEN"))
+        self.hf_client = InferenceClient(token=_HF_KEYS[0])
         self.groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.product_cache: TTLCache = TTLCache(maxsize=100, ttl=3600)
         self.graph = self._build_graph()
@@ -173,35 +230,42 @@ class ShoppingGraph:
         json_mode: bool = False,
     ) -> str:
         """Call Qwen2.5-72B via HuggingFace, falling back to Groq on billing/rate errors."""
-        global _hf_credits_exhausted
+        global _hf_key_index, _hf_credits_exhausted
         messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": prompt},
         ]
 
-        # Primary: HuggingFace (Qwen2.5-72B)
+        # Primary: HuggingFace — try each key before falling back to Groq
         if not _hf_credits_exhausted:
-            for attempt in range(max_retries):
-                try:
-                    response = self.hf_client.chat_completion(
-                        model=HF_MODEL,
-                        messages=messages,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                    )
-                    return response.choices[0].message.content
-                except Exception as e:
-                    err = str(e)
-                    if "402" in err or "Payment Required" in err or "credits" in err.lower():
-                        logger.warning("HuggingFace credits exhausted — switching to Groq for this session.")
-                        _hf_credits_exhausted = True
-                        break
-                    if attempt < max_retries - 1:
-                        wait = (2 ** attempt) * 2
-                        logger.warning(f"HF LLM call failed (attempt {attempt + 1}), retrying in {wait}s: {e}")
-                        time.sleep(wait)
-                    else:
-                        raise
+            for _ in range(len(_HF_KEYS)):
+                self.hf_client = InferenceClient(token=_HF_KEYS[_hf_key_index % len(_HF_KEYS)])
+                for attempt in range(max_retries):
+                    try:
+                        response = self.hf_client.chat_completion(
+                            model=HF_MODEL,
+                            messages=messages,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                        )
+                        return response.choices[0].message.content
+                    except Exception as e:
+                        err = str(e)
+                        if "402" in err or "Payment Required" in err or "credits" in err.lower():
+                            logger.warning(f"HuggingFace key {_hf_key_index} credits exhausted.")
+                            _hf_key_index += 1
+                            if _hf_key_index >= len(_HF_KEYS):
+                                logger.warning("All HuggingFace keys exhausted — switching to Groq.")
+                                _hf_credits_exhausted = True
+                            break
+                        if attempt < max_retries - 1:
+                            wait = (2 ** attempt) * 2
+                            logger.warning(f"HF LLM call failed (attempt {attempt + 1}), retrying in {wait}s: {e}")
+                            time.sleep(wait)
+                        else:
+                            raise
+                if _hf_credits_exhausted:
+                    break
 
         # Fallback: Groq (llama-3.1-8b-instant)
         groq_kwargs: dict = {
@@ -377,18 +441,26 @@ class ShoppingGraph:
         """Search for products using SerpAPI Google Shopping."""
         _t0 = time.time()
         try:
-            params = {
-                "api_key": serpapi_key,
-                "engine": "google_shopping",
-                "q": state["processed_query"]["restructured"],
-                "num": 20,
-                "gl": "us",
-                "hl": "en",
-                "condition": "new",   # filter to new products only
-            }
-
-            search = GoogleSearch(params)
-            results = search.get_dict()
+            for attempt in range(len(_SERPAPI_KEYS)):
+                params = {
+                    "api_key": _get_serpapi_key(),
+                    "engine": "google_shopping",
+                    "q": state["processed_query"]["restructured"],
+                    "num": 20,
+                    "gl": "us",
+                    "hl": "en",
+                    "condition": "new",
+                }
+                try:
+                    search = GoogleSearch(params)
+                    results = search.get_dict()
+                    if "error" in results and ("credit" in results["error"].lower() or "limit" in results["error"].lower()):
+                        raise Exception(results["error"])
+                    break
+                except Exception as e:
+                    if attempt < len(_SERPAPI_KEYS) - 1 and _rotate_serpapi_key(str(e)):
+                        continue
+                    raise
             product_results = results.get("shopping_results", [])[:20]
 
             products = []
@@ -466,16 +538,27 @@ class ShoppingGraph:
         if not product_id:
             return None
         loop = asyncio.get_event_loop()
-        params = {
-            "api_key": serpapi_key,
-            "engine": "google_product",
-            "product_id": product_id,
-            "hl": "en",
-        }
+        last_exc: Exception = Exception("No SerpAPI keys available")
+        for attempt in range(len(_SERPAPI_KEYS)):
+            params = {
+                "api_key": _get_serpapi_key(),
+                "engine": "google_product",
+                "product_id": product_id,
+                "hl": "en",
+            }
+            try:
+                result = await loop.run_in_executor(
+                    None, lambda p=params: GoogleSearch(p).get_dict()
+                )
+                if "error" in result and ("credit" in result["error"].lower() or "limit" in result["error"].lower()):
+                    raise Exception(result["error"])
+                break
+            except Exception as e:
+                last_exc = e
+                if attempt < len(_SERPAPI_KEYS) - 1 and _rotate_serpapi_key(str(e)):
+                    continue
+                raise last_exc
         try:
-            result = await loop.run_in_executor(
-                None, lambda: GoogleSearch(params).get_dict()
-            )
             pr = result.get("product_results", {})
             sellers = result.get("sellers_results", {}).get("online_sellers", [])
             specs_raw = result.get("specs_results", {})
@@ -503,19 +586,24 @@ class ShoppingGraph:
         urls = [p["url"] for p in products if p.get("url")][:10]
         if not urls:
             return {}
-        try:
-            response = await _get_tavily_client().extract(
-                urls=urls,
-                extract_depth="basic",   # 1 credit per 5 URLs
-            )
-            return {
-                r["url"]: r.get("raw_content", "")[:3000]
-                for r in response.get("results", [])
-                if r.get("raw_content")
-            }
-        except Exception as e:
-            logger.warning(f"Tavily extract failed: {e}")
-            return {}
+        for attempt in range(len(_TAVILY_KEYS)):
+            try:
+                response = await _get_tavily_client().extract(
+                    urls=urls,
+                    extract_depth="basic",
+                )
+                return {
+                    r["url"]: r.get("raw_content", "")[:3000]
+                    for r in response.get("results", [])
+                    if r.get("raw_content")
+                }
+            except Exception as e:
+                err = str(e).lower()
+                if ("credit" in err or "quota" in err or "rate" in err or "429" in err) and attempt < len(_TAVILY_KEYS) - 1:
+                    if _rotate_tavily_key(str(e)):
+                        continue
+                logger.warning(f"Tavily extract failed: {e}")
+                return {}
 
     async def _fetch_tavily_content(self, product: Dict) -> Dict:
         """Fetch Tavily search content for a single product concurrently."""
@@ -541,14 +629,24 @@ class ShoppingGraph:
                         query = f"{' '.join(words)} review specifications"
                         domains = None  # open search on retry
 
-                    response = await _get_tavily_client().search(
-                        query=query,
-                        search_depth="advanced",
-                        max_results=3,
-                        include_answer="basic",
-                        include_raw_content=True,
-                        include_domains=domains,
-                    )
+                    for key_attempt in range(len(_TAVILY_KEYS)):
+                        try:
+                            response = await _get_tavily_client().search(
+                                query=query,
+                                search_depth="advanced",
+                                max_results=3,
+                                include_answer="basic",
+                                include_raw_content=True,
+                                include_domains=domains,
+                            )
+                            break
+                        except Exception as ke:
+                            err = str(ke).lower()
+                            if ("credit" in err or "quota" in err or "rate" in err or "429" in err) and key_attempt < len(_TAVILY_KEYS) - 1:
+                                if _rotate_tavily_key(str(ke)):
+                                    continue
+                            raise
+
                     parts = []
                     if response.get("answer"):
                         parts.append(f"[Summary] {response['answer']}")

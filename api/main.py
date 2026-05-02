@@ -17,9 +17,15 @@ from backend import ShoppingGraph, _log_search, save_to_csv
 
 app = FastAPI(title="Shopping Assistant API")
 
+_allowed_origins = [
+    "http://localhost:3000",
+    os.getenv("FRONTEND_URL", ""),          # e.g. https://your-app.vercel.app
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[o for o in _allowed_origins if o],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )

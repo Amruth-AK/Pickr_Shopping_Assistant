@@ -321,13 +321,13 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
                 href={p.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                whileHover={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "#ffffff", borderColor: "transparent" }}
+                whileHover={{ background: "linear-gradient(135deg, #fce7f3, #ede9fe)", color: "#4c1d95", borderColor: "#d8b4fe" }}
                 transition={{ duration: 0.2 }}
                 className="block text-center text-xs font-semibold py-2 px-3 rounded-lg"
                 style={{
-                  background: "var(--bg-elevated)",
-                  color: "var(--text-1)",
-                  border: "1px solid var(--border-mid)",
+                  background: "#15131c",
+                  color: "#e8e4f0",
+                  border: "1px solid #15131c",
                 }}
               >
                 View Product →
