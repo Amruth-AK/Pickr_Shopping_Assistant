@@ -315,7 +315,7 @@ export default function Home() {
                     border: "1px solid #c4bdda",
                   }}
                 >
-                  <span className="hidden md:inline">← </span>New Search
+                  <span className="hidden md:inline"></span>New Search
                 </motion.button>
               </motion.div>
 
@@ -338,7 +338,7 @@ export default function Home() {
                     border: "1px solid #c4bdda",
                   }}
                 >
-                  <span className="hidden md:inline">← </span>New Search
+                  <span className="hidden md:inline"></span>New Search
                 </motion.button>
               </motion.div>
             </motion.div>
