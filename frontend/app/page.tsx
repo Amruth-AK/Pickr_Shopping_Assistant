@@ -1,12 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearch } from "@/lib/useSearch"
+import { useHistory } from "@/lib/useHistory"
 import { SearchForm } from "@/components/SearchForm"
 import { SearchProgress } from "@/components/SearchProgress"
 import { ResultsView } from "@/components/ResultsView"
+import { HistoryDropdown } from "@/components/HistoryDropdown"
 import { HeroBackground } from "@/components/ui/elegant-shapes"
 import { motion, AnimatePresence } from "framer-motion"
+import type { SearchResult } from "@/lib/types"
 
 const LOGO_STYLES = {
   fontFamily: "var(--font-fraunces)",
@@ -34,16 +37,20 @@ const LOGO_STYLES_DARK_BG = {
 
 export default function Home() {
   const { search, reset, isLoading, currentStep, currentLabel, results, error } = useSearch()
+  const { entries, push, remove, clear } = useHistory()
   const [showSearch, setShowSearch] = useState(true)
   const [lastQuery, setLastQuery] = useState("")
   const [lastMaxPrice, setLastMaxPrice] = useState("")
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [displayedResults, setDisplayedResults] = useState<SearchResult | null>(null)
 
-  const isIdle = !results && !isLoading
+  const isIdle = !displayedResults && !isLoading
 
   function handleSearch(req: { query: string; max_price?: number }) {
     setLastQuery(req.query)
     setLastMaxPrice(req.max_price != null ? String(req.max_price) : "")
     setShowSearch(false)
+    setDisplayedResults(null)
     search(req)
   }
 
@@ -52,13 +59,46 @@ export default function Home() {
     setShowSearch(true)
     setLastQuery("")
     setLastMaxPrice("")
+    setDisplayedResults(null)
+    setHistoryOpen(false)
   }
 
-  const hasResults = !!results && !isLoading
+  function handleHistorySelect(entry: import("@/lib/useHistory").HistoryEntry) {
+    reset()
+    setDisplayedResults(entry.results)
+    setLastQuery(entry.query)
+    setShowSearch(false)
+    setHistoryOpen(false)
+  }
+
+  const activeResults = displayedResults ?? results
+
+  useEffect(() => {
+    if (results && !isLoading) {
+      push(lastQuery, results)
+      setDisplayedResults(results)
+    }
+  }, [results, isLoading])
+
+  const hasResults = !!activeResults && !isLoading
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
       <HeroBackground />
+
+      {/* History button — visible once there's history or an active search */}
+      {(entries.length > 0 || !isIdle) && (
+      <div className="fixed top-5 right-6 z-50">
+        <HistoryDropdown
+          entries={entries}
+          open={historyOpen}
+          onClose={() => setHistoryOpen((v) => !v)}
+          onSelect={handleHistorySelect}
+          onRemove={remove}
+          onClear={clear}
+        />
+      </div>
+      )}
 
       {/* Top-left logo — shown after search, animates from hero title */}
       <AnimatePresence>
@@ -213,7 +253,7 @@ export default function Home() {
                 </motion.button>
               </motion.div>
 
-              <ResultsView results={results} />
+              <ResultsView results={activeResults!} />
 
               <motion.div
                 initial={{ opacity: 0 }}
