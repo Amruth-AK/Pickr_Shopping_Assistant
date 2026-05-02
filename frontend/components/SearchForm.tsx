@@ -130,7 +130,8 @@ export function SearchForm({ onSubmit, isLoading, initialQuery = "", initialMaxP
                 Searching…
               </span>
             ) : (
-              "Find Products →"
+              <>Find Products<span className="hidden md:inline"> →</span></>
+
             )}
           </motion.button>
 

@@ -330,7 +330,7 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
                   border: "1px solid #15131c",
                 }}
               >
-                View Product →
+                View Product<span className="hidden md:inline"> →</span>
               </motion.a>
             ) : (
               <span className="text-xs" style={{ color: "var(--text-3)" }}>No link</span>
@@ -443,7 +443,7 @@ function MobileSingleProduct({ p, rank, maxPrice }: { p: Product; rank: number; 
               className="block text-center text-xs font-semibold py-2 px-3 rounded-lg"
               style={{ background: "var(--bg-elevated)", color: "var(--text-1)", border: "1px solid var(--border-mid)" }}
             >
-              View Product →
+              View Product<span className="hidden md:inline"> →</span>
             </motion.a>
           : <span className="text-xs" style={{ color: "var(--text-3)" }}>No link</span>
         }
@@ -457,7 +457,12 @@ function MobileTabs({ products, maxPrice }: { products: Product[]; maxPrice?: nu
     <Tabs defaultValue="0">
       <TabsList className="w-full mb-4" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-dim)" }}>
         {products.map((_, i) => (
-          <TabsTrigger key={i} value={String(i)} className="flex-1 text-xs" style={{ color: "var(--text-2)" }}>
+          <TabsTrigger
+            key={i}
+            value={String(i)}
+            className="flex-1 text-xs data-active:!bg-[#15131c] data-active:!text-[#e8e4f0] data-active:!shadow-none"
+            style={{ color: "var(--text-2)" }}
+          >
             #{i + 1} {RANK[i].label}
           </TabsTrigger>
         ))}

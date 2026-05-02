@@ -26,10 +26,13 @@ function timeAgo(ts: number): string {
 
 export function HistoryDropdown({ entries, open, onClose, onSelect, onRemove, onClear }: HistoryDropdownProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const removingRef = useRef(false)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      if (removingRef.current) { removingRef.current = false; return }
+      const target = e.target as Node
+      if (ref.current && !ref.current.contains(target)) onClose()
     }
     if (open) document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
@@ -126,6 +129,7 @@ export function HistoryDropdown({ entries, open, onClose, onSelect, onRemove, on
 
                     {/* Delete */}
                     <button
+                      onMouseDown={() => { removingRef.current = true }}
                       onClick={(e) => { e.stopPropagation(); onRemove(entry.id) }}
                       className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:opacity-70 text-xs"
                       style={{ color: "var(--text-3)" }}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearch } from "@/lib/useSearch"
 import { useHistory } from "@/lib/useHistory"
 import { SearchForm } from "@/components/SearchForm"
@@ -43,6 +43,21 @@ export default function Home() {
   const [lastMaxPrice, setLastMaxPrice] = useState("")
   const [historyOpen, setHistoryOpen] = useState(false)
   const [displayedResults, setDisplayedResults] = useState<SearchResult | null>(null)
+  const [navVisible, setNavVisible] = useState(true)
+  const lastScrollY = useRef(0)
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onScroll() {
+      const current = window.scrollY
+      if (current > lastScrollY.current) {
+        setNavVisible(false)  // scrolling down — hide immediately
+      }
+      lastScrollY.current = current
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   const isIdle = !displayedResults && !isLoading
 
@@ -82,43 +97,92 @@ export default function Home() {
 
   const hasResults = !!activeResults && !isLoading
 
+  // Show nav only when the top edge of results scrolls back into view
+  useEffect(() => {
+    const el = resultsRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setNavVisible(true)
+      },
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasResults])
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
       <HeroBackground />
 
-      {/* History button — visible once there's history or an active search */}
-      {(entries.length > 0 || !isIdle) && (
-      <div className="fixed top-5 right-6 z-50">
-        <HistoryDropdown
-          entries={entries}
-          open={historyOpen}
-          onClose={() => setHistoryOpen((v) => !v)}
-          onSelect={handleHistorySelect}
-          onRemove={remove}
-          onClear={clear}
-        />
-      </div>
-      )}
-
-      {/* Top-left logo — shown after search, animates from hero title */}
+      {/* Desktop nav — fixed top-left logo + top-right history */}
       <AnimatePresence>
-        {!isIdle && (
+        {(!isIdle || entries.length > 0) && (
           <motion.div
-            className="fixed top-5 left-6 z-50"
+            className="hidden md:flex fixed top-0 left-0 right-0 z-50 items-center justify-between px-6 py-5 pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <motion.button
-              layoutId="pickr-logo"
-              onClick={handleReset}
-              className="text-2xl font-bold leading-none cursor-pointer"
-              style={LOGO_STYLES_DARK_BG}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            >
-              Pickr
-            </motion.button>
+            {!isIdle && (
+              <motion.button
+                layoutId="pickr-logo"
+                onClick={handleReset}
+                className="text-2xl font-bold leading-none cursor-pointer pointer-events-auto"
+                style={LOGO_STYLES_DARK_BG}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              >
+                Pickr
+              </motion.button>
+            )}
+            <div className={`pointer-events-auto ${isIdle ? "ml-auto" : ""}`}>
+              <HistoryDropdown
+                entries={entries}
+                open={historyOpen}
+                onClose={() => setHistoryOpen((v) => !v)}
+                onSelect={handleHistorySelect}
+                onRemove={remove}
+                onClear={clear}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile nav — logo top-left, history top-right, no background */}
+      <AnimatePresence>
+        {(!isIdle || entries.length > 0) && (
+          <motion.div
+            className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: navVisible ? 1 : 0, y: navVisible ? 0 : -8 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ pointerEvents: navVisible ? "auto" : "none" }}
+          >
+            {!isIdle && (
+              <motion.button
+                layoutId="pickr-logo-mobile"
+                onClick={handleReset}
+                className="text-2xl font-bold leading-none cursor-pointer select-none"
+                style={LOGO_STYLES_DARK_BG}
+                whileTap={{ scale: 0.93, opacity: 0.75 }}
+                transition={{ duration: 0.12 }}
+              >
+                Pickr
+              </motion.button>
+            )}
+            <div className={isIdle ? "ml-auto" : ""}>
+              <HistoryDropdown
+                entries={entries}
+                open={historyOpen}
+                onClose={() => setHistoryOpen((v) => !v)}
+                onSelect={handleHistorySelect}
+                onRemove={remove}
+                onClear={clear}
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -126,7 +190,7 @@ export default function Home() {
       <main
         className={`relative z-10 flex-1 w-full mx-auto px-4 flex flex-col gap-5 ${
           hasResults ? "max-w-6xl" : "max-w-2xl"
-        } ${isIdle ? "justify-center" : "py-10 gap-8"}`}
+        } ${isIdle ? "justify-center" : "pt-20 pb-10 md:py-10 gap-8"}`}
         style={{ isolation: "isolate" }}
       >
         {/* Hero — only when idle */}
@@ -231,11 +295,14 @@ export default function Home() {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               layout
             >
+              {/* sentinel — nav reappears when this top edge scrolls back into view */}
+              <div ref={resultsRef} style={{ height: 0 }} />
+
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="flex justify-end mb-6"
+                className="hidden md:flex justify-end mb-6"
               >
                 <motion.button
                   onClick={handleReset}
@@ -248,7 +315,7 @@ export default function Home() {
                     border: "1px solid #c4bdda",
                   }}
                 >
-                  ← New Search
+                  <span className="hidden md:inline">← </span>New Search
                 </motion.button>
               </motion.div>
 
@@ -271,7 +338,7 @@ export default function Home() {
                     border: "1px solid #c4bdda",
                   }}
                 >
-                  ← New Search
+                  <span className="hidden md:inline">← </span>New Search
                 </motion.button>
               </motion.div>
             </motion.div>
