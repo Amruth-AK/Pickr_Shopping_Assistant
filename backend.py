@@ -1165,7 +1165,7 @@ class ShoppingGraph:
                     "Don't end with things like 'thanks', 'thanks for reading' or 'hope this helps' — just the analysis."
                 )
                 analysis_summary = self._llm_call(
-                    analysis_prompt, _SYSTEM_ANALYSIS, max_tokens=200, temperature=0.7
+                    analysis_prompt, _SYSTEM_ANALYSIS, max_tokens=350, temperature=0.7
                 )
             except Exception as e:
                 logger.warning(f"Analysis summary generation failed: {e}")
