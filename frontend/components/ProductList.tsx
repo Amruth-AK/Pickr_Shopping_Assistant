@@ -18,12 +18,16 @@ export function ProductList({ products }: ProductListProps) {
   return (
     <section className="mt-2">
       <div className="flex items-center gap-3 mb-5">
-        <h2 className="text-lg font-semibold" style={{ color: "var(--text-1)" }}>
+        <h2 className="text-lg font-semibold" style={{ color: "#f0f0f0" }}>
           All Ranked Products
         </h2>
         <span
           className="text-xs px-2 py-0.5 rounded-full"
-          style={{ background: "var(--bg-elevated)", color: "var(--text-3)", border: "1px solid var(--border-dim)" }}
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            color: "#a3a3a3",
+            border: "1px solid rgba(255,255,255,0.10)",
+          }}
         >
           {products.length} results
         </span>
@@ -42,14 +46,17 @@ export function ProductList({ products }: ProductListProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               className="rounded-xl overflow-hidden"
-              style={{ border: "1px solid var(--border-dim)" }}
+              style={{
+                border: "1px solid var(--border-mid)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
+              }}
             >
               {/* Collapsed row */}
               <motion.button
                 onClick={() => setOpenIndex(isOpen ? null : i)}
                 className="w-full flex items-center gap-4 px-4 py-3 text-left transition-colors"
-                style={{ background: isOpen ? "var(--bg-elevated)" : "var(--bg-surface)" }}
-                whileHover={{ background: "var(--bg-hover)" }}
+                style={{ background: isOpen ? "var(--bg-muted)" : "var(--bg-surface)" }}
+                whileHover={{ background: "var(--bg-hover-light)" }}
                 transition={{ duration: 0.15 }}
               >
                 {/* Rank number */}

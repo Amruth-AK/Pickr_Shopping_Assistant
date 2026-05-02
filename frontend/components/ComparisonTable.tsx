@@ -16,9 +16,9 @@ interface ComparisonTableProps {
 }
 
 const RANK = [
-  { label: "Best Pick",     bg: "var(--rank-1-bg)", color: "var(--rank-1-text)", border: "rgba(52,211,153,0.25)" },
-  { label: "Runner-Up",     bg: "var(--rank-2-bg)", color: "var(--rank-2-text)", border: "rgba(96,165,250,0.20)" },
-  { label: "Also Consider", bg: "var(--rank-3-bg)", color: "var(--rank-3-text)", border: "rgba(163,163,163,0.15)" },
+  { label: "Best Pick",     bg: "var(--rank-1-bg)", color: "var(--rank-1-text)", border: "var(--rank-1-border)" },
+  { label: "Runner-Up",     bg: "var(--rank-2-bg)", color: "var(--rank-2-text)", border: "var(--rank-2-border)" },
+  { label: "Also Consider", bg: "var(--rank-3-bg)", color: "var(--rank-3-text)", border: "var(--rank-3-border)" },
 ]
 
 /* ── Expandable list ─────────────────────────────────────────── */
@@ -98,7 +98,7 @@ function Row({ label, cells, isFirst }: RowProps) {
           key={i}
           className="px-5 flex items-start"
           style={{
-            background: i === 0 ? "rgba(16,185,129,0.03)" : undefined,
+            background: i === 0 ? "var(--rank-1-wash)" : undefined,
             borderTop,
             borderLeft: "1px solid var(--border-dim)",
             paddingTop: "14px",
@@ -128,7 +128,11 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
   return (
     <div
       className="rounded-2xl overflow-hidden overflow-x-auto"
-      style={{ border: "1px solid var(--border-dim)", background: "var(--bg-surface)" }}
+      style={{
+        border: "1px solid var(--border-mid)",
+        background: "var(--bg-surface)",
+        boxShadow: "0 8px 40px rgba(0,0,0,0.45)",
+      }}
     >
       {/*
         Single CSS grid — every Row uses display:contents so its cells
@@ -165,7 +169,7 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
             style={{
               borderLeft: "1px solid var(--border-dim)",
               borderTop: `2px solid ${RANK[i].border}`,
-              background: i === 0 ? "rgba(16,185,129,0.03)" : undefined,
+              background: i === 0 ? "var(--rank-1-wash)" : undefined,
             }}
           >
             <span
@@ -307,7 +311,7 @@ function DesktopTable({ products, maxPrice }: { products: Product[]; maxPrice?: 
             key={i}
             className="px-5 py-4"
             style={{
-              background: i === 0 ? "rgba(16,185,129,0.03)" : undefined,
+              background: i === 0 ? "var(--rank-1-wash)" : undefined,
               borderTop: "1px solid var(--border-dim)",
               borderLeft: "1px solid var(--border-dim)",
             }}
@@ -467,12 +471,16 @@ export function ComparisonTable({ products, maxPrice }: ComparisonTableProps) {
   return (
     <section>
       <div className="flex items-center gap-3 mb-5">
-        <h2 className="text-lg font-semibold" style={{ color: "var(--text-1)" }}>
+        <h2 className="text-lg font-semibold" style={{ color: "#f0f0f0" }}>
           Top Recommendations
         </h2>
         <span
           className="text-xs px-2 py-0.5 rounded-full font-medium"
-          style={{ background: "rgba(16,185,129,0.1)", color: "var(--accent-green)", border: "1px solid rgba(16,185,129,0.2)" }}
+          style={{
+            background: "rgba(16,185,129,0.15)",
+            color: "#34d399",
+            border: "1px solid rgba(16,185,129,0.30)",
+          }}
         >
           {top3.length} compared
         </span>

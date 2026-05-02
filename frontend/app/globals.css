@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-instrument-serif);
+  --font-heading: var(--font-fraunces);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -32,78 +32,96 @@
 
 /* ── Design tokens ─────────────────────────────────────────── */
 :root {
-  /* shadcn base overrides */
+  /* shadcn base overrides — page is dark, cards are soft lavender */
   --background: #0d0d0d;
   --foreground: #f0f0f0;
-  --card: #161616;
-  --card-foreground: #f0f0f0;
-  --popover: #1e1e1e;
-  --popover-foreground: #f0f0f0;
-  --primary: #3b82f6;
+  --card: #cdc4e0;
+  --card-foreground: #15131c;
+  --popover: #dad3e8;
+  --popover-foreground: #15131c;
+  --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --secondary: #1e1e1e;
-  --secondary-foreground: #f0f0f0;
-  --muted: #1e1e1e;
-  --muted-foreground: #737373;
-  --accent: #1e1e1e;
-  --accent-foreground: #f0f0f0;
-  --destructive: #ef4444;
-  --border: #262626;
-  --input: #1e1e1e;
-  --ring: #3b82f6;
+  --secondary: #bcb1d3;
+  --secondary-foreground: #15131c;
+  --muted: #bcb1d3;
+  --muted-foreground: #7a7686;
+  --accent: #bcb1d3;
+  --accent-foreground: #15131c;
+  --destructive: #dc2626;
+  --border: #9e92bc;
+  --input: #dad3e8;
+  --ring: #4f46e5;
   --radius: 0.75rem;
 
-  /* App palette */
+  /* App palette — dark canvas */
   --bg-base:     #0d0d0d;
-  --bg-surface:  #161616;
-  --bg-elevated: #1e1e1e;
   --bg-hover:    #252525;
 
-  --border-dim:  #262626;
-  --border-mid:  #333333;
-  --border-glow: rgba(59,130,246,0.35);
+  /* Light card surfaces (on dark canvas) — muted lavender */
+  --bg-surface:    #cdc4e0;   /* primary card — deeper lavender */
+  --bg-elevated:   #dad3e8;   /* inputs, image tiles, top layer */
+  --bg-muted:      #bcb1d3;   /* label cells, alt rows */
+  --bg-hover-light:#c5bbd9;   /* hover on light cards */
 
-  --accent-blue:  #3b82f6;
-  --accent-green: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-violet:#8b5cf6;
+  /* Borders for light cards */
+  --border-dim:    #b6abce;
+  --border-mid:    #9e92bc;
+  --border-strong: #7c6fa3;
+  --border-glow:   rgba(99,102,241,0.35);
 
-  --text-1: #f0f0f0;
-  --text-2: #a3a3a3;
-  --text-3: #525252;
+  /* Ink (text on light cards) */
+  --text-1: #15131c;   /* primary, near-black indigo-tinted */
+  --text-2: #4a4655;   /* secondary */
+  --text-3: #7a7686;   /* tertiary / muted */
 
-  --score-high: #10b981;
-  --score-mid:  #f59e0b;
-  --score-low:  #ef4444;
+  /* Accents — tuned for legibility on white */
+  --accent-blue:   #4f46e5;  /* indigo-600 */
+  --accent-indigo: #4338ca;
+  --accent-violet: #7c3aed;
+  --accent-green:  #059669;  /* emerald-600 */
+  --accent-amber:  #d97706;  /* amber-600 */
+  --accent-rose:   #dc2626;
 
-  /* Rank badge colors */
-  --rank-1-bg:   #064e3b;
-  --rank-1-text: #34d399;
-  --rank-2-bg:   #1e3a5f;
-  --rank-2-text: #60a5fa;
-  --rank-3-bg:   #2d2d2d;
-  --rank-3-text: #a3a3a3;
+  --score-high: #059669;
+  --score-mid:  #d97706;
+  --score-low:  #dc2626;
+
+  /* Rank badge colors — light pill on light card */
+  --rank-1-bg:    #d1fae5;   /* emerald-100 */
+  --rank-1-text:  #047857;   /* emerald-700 */
+  --rank-1-border:#6ee7b7;
+
+  --rank-2-bg:    #e0e7ff;   /* indigo-100 */
+  --rank-2-text:  #4338ca;   /* indigo-700 */
+  --rank-2-border:#a5b4fc;
+
+  --rank-3-bg:    #e2e8f0;   /* slate-200 */
+  --rank-3-text:  #475569;   /* slate-600 */
+  --rank-3-border:#cbd5e1;
+
+  /* Highlight wash for #1 column */
+  --rank-1-wash:  rgba(5,150,105,0.10);
 }
 
 .dark {
   --background: #0d0d0d;
   --foreground: #f0f0f0;
-  --card: #161616;
-  --card-foreground: #f0f0f0;
-  --popover: #1e1e1e;
-  --popover-foreground: #f0f0f0;
-  --primary: #3b82f6;
+  --card: #cdc4e0;
+  --card-foreground: #15131c;
+  --popover: #dad3e8;
+  --popover-foreground: #15131c;
+  --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --secondary: #1e1e1e;
-  --secondary-foreground: #f0f0f0;
-  --muted: #1e1e1e;
-  --muted-foreground: #737373;
-  --accent: #1e1e1e;
-  --accent-foreground: #f0f0f0;
-  --destructive: #ef4444;
-  --border: #262626;
-  --input: #1e1e1e;
-  --ring: #3b82f6;
+  --secondary: #bcb1d3;
+  --secondary-foreground: #15131c;
+  --muted: #bcb1d3;
+  --muted-foreground: #7a7686;
+  --accent: #bcb1d3;
+  --accent-foreground: #15131c;
+  --destructive: #dc2626;
+  --border: #9e92bc;
+  --input: #dad3e8;
+  --ring: #4f46e5;
 }
 
 /* ── Base reset ─────────────────────────────────────────────── */
@@ -124,8 +142,8 @@
     -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
-    background: rgba(59, 130, 246, 0.3);
-    color: #fff;
+    background: rgba(79, 70, 229, 0.25);
+    color: var(--text-1);
   }
 }
 
@@ -134,6 +152,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-dim);
   border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
 }
 
 .card-elevated {
@@ -164,11 +183,18 @@
 
 /* ── Glow pulse (active step) ───────────────────────────────── */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
-  50%       { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79,70,229,0.45); }
+  50%       { box-shadow: 0 0 0 8px rgba(79,70,229,0); }
 }
 .glow-pulse {
   animation: glow-pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Input focus glow (light card) ──────────────────────────── */
+.input-glow:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
 }
 
 /* ── Shimmer loading ────────────────────────────────────────── */
@@ -179,9 +205,9 @@
 .shimmer {
   background: linear-gradient(
     90deg,
-    var(--bg-surface) 0%,
-    var(--bg-elevated) 50%,
-    var(--bg-surface) 100%
+    var(--bg-muted) 0%,
+    var(--bg-surface) 50%,
+    var(--bg-muted) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
@@ -200,13 +226,6 @@
   grid-template-columns: 148px 1fr 1fr 1fr;
 }
 
-/* ── Input focus glow ───────────────────────────────────────── */
-.input-glow:focus {
-  outline: none;
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-}
-
 /* ── Line clamp ─────────────────────────────────────────────── */
 .line-clamp-2 {
   display: -webkit-box;
@@ -221,8 +240,8 @@
   overflow: hidden;
 }
 
-/* ── Scrollbar ──────────────────────────────────────────────── */
+/* ── Scrollbar (on dark canvas) ─────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+::-webkit-scrollbar-thumb { background: #2d2d33; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #45454d; }

@@ -73,7 +73,7 @@ export function ProductCard({ product, rank }: ProductCardProps) {
               <span
                 key={i}
                 className="text-xs px-2 py-0.5 rounded-md"
-                style={{ background: "var(--bg-elevated)", color: "var(--text-2)", border: "1px solid var(--border-dim)" }}
+                style={{ background: "var(--bg-muted)", color: "var(--text-2)", border: "1px solid var(--border-dim)" }}
               >
                 {f}
               </span>
@@ -116,7 +116,7 @@ export function ProductCard({ product, rank }: ProductCardProps) {
           <div
             className="px-3 py-2 rounded-lg text-xs italic"
             style={{
-              background: "rgba(59,130,246,0.06)",
+              background: "rgba(79,70,229,0.07)",
               borderLeft: "2px solid var(--accent-blue)",
               color: "var(--text-2)",
             }}

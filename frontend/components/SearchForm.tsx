@@ -29,7 +29,7 @@ export function SearchForm({ onSubmit, isLoading, initialQuery = "", initialMaxP
     background: "var(--bg-elevated)",
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    borderColor: "var(--border-mid)",
     borderRadius: "10px",
     color: "var(--text-1)",
     fontSize: "14px",
@@ -41,21 +41,22 @@ export function SearchForm({ onSubmit, isLoading, initialQuery = "", initialMaxP
 
   const inputFocused: React.CSSProperties = {
     borderColor: "var(--accent-blue)",
-    boxShadow: "0 0 0 3px rgba(59,130,246,0.12)",
+    boxShadow: "0 0 0 3px rgba(79,70,229,0.15)",
   }
 
   return (
     <form onSubmit={handleSubmit}>
       <div
-        className="rounded-2xl p-5 flex flex-col gap-4"
+        className="rounded-2xl p-6 flex flex-col gap-5"
         style={{
           background: "var(--bg-surface)",
-          border: "1px solid var(--border-dim)",
+          border: "1px solid var(--border-mid)",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
         }}
       >
-        {/* Query — full width */}
+        {/* Query */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
+          <label className="text-xs font-medium" style={{ color: "var(--text-1)" }}>
             What are you looking for?
           </label>
           <textarea
@@ -77,7 +78,7 @@ export function SearchForm({ onSubmit, isLoading, initialQuery = "", initialMaxP
 
         {/* Max Budget */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
+          <label className="text-xs font-medium" style={{ color: "var(--text-1)" }}>
             Max budget{" "}
             <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(optional)</span>
           </label>
@@ -117,15 +118,15 @@ export function SearchForm({ onSubmit, isLoading, initialQuery = "", initialMaxP
             className="px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               background: isLoading
-                ? "var(--bg-elevated)"
-                : "linear-gradient(135deg, #3b82f6, #6366f1)",
-              boxShadow: isLoading ? "none" : "0 0 20px rgba(99,102,241,0.3)",
+                ? "var(--bg-muted)"
+                : "linear-gradient(135deg, #4f46e5, #7c3aed)",
+              boxShadow: isLoading ? "none" : "0 4px 14px rgba(79,70,229,0.35)",
               transition: "background 0.3s, box-shadow 0.3s",
             }}
           >
             {isLoading ? (
-              <span className="flex items-center gap-2">
-                <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              <span className="flex items-center gap-2" style={{ color: "var(--text-2)" }}>
+                <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-gray-400 border-t-gray-700 animate-spin" />
                 Searching…
               </span>
             ) : (

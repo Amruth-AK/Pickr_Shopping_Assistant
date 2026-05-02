@@ -5,13 +5,40 @@ import { useSearch } from "@/lib/useSearch"
 import { SearchForm } from "@/components/SearchForm"
 import { SearchProgress } from "@/components/SearchProgress"
 import { ResultsView } from "@/components/ResultsView"
+import { HeroBackground } from "@/components/ui/elegant-shapes"
 import { motion, AnimatePresence } from "framer-motion"
 
+const LOGO_STYLES = {
+  fontFamily: "var(--font-fraunces)",
+  fontStyle: "italic",
+  fontWeight: 700,
+  fontVariationSettings: '"opsz" 144, "SOFT" 50',
+  letterSpacing: "-0.02em",
+  background: "linear-gradient(135deg, #1e1b4b 0%, #4338ca 55%, #7c3aed 100%)",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+  backgroundClip: "text",
+}
+
+const LOGO_STYLES_DARK_BG = {
+  fontFamily: "var(--font-fraunces)",
+  fontStyle: "italic",
+  fontWeight: 700,
+  fontVariationSettings: '"opsz" 144, "SOFT" 50',
+  letterSpacing: "-0.02em",
+  background: "linear-gradient(135deg, #f5f3ff 0%, #c4b5fd 60%, #a78bfa 100%)",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+  backgroundClip: "text",
+}
+
 export default function Home() {
-  const { search, isLoading, currentStep, currentLabel, results, error } = useSearch()
+  const { search, reset, isLoading, currentStep, currentLabel, results, error } = useSearch()
   const [showSearch, setShowSearch] = useState(true)
   const [lastQuery, setLastQuery] = useState("")
   const [lastMaxPrice, setLastMaxPrice] = useState("")
+
+  const isIdle = !results && !isLoading
 
   function handleSearch(req: { query: string; max_price?: number }) {
     setLastQuery(req.query)
@@ -20,114 +47,94 @@ export default function Home() {
     search(req)
   }
 
+  function handleReset() {
+    reset()
+    setShowSearch(true)
+    setLastQuery("")
+    setLastMaxPrice("")
+  }
+
   const hasResults = !!results && !isLoading
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
-      {/* Header */}
-      <header
-        className="sticky top-0 z-50 px-5 py-3"
-        style={{
-          background: "rgba(13,13,13,0.8)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid var(--border-dim)",
-        }}
-      >
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-              style={{ background: "var(--accent-blue)" }}
-            >
-              ✦
-            </div>
-            <span
-              className="font-semibold tracking-tight"
-              style={{ color: "var(--text-1)", fontFamily: "var(--font-inter)" }}
-            >
-              ShopAdvisor
-            </span>
-            <span
-              className="text-xs px-2 py-0.5 rounded-full hidden sm:inline"
-              style={{
-                background: "rgba(59,130,246,0.1)",
-                color: "var(--accent-blue)",
-                border: "1px solid rgba(59,130,246,0.2)",
-              }}
-            >
-              AI-powered
-            </span>
-          </div>
-          <span className="text-xs" style={{ color: "var(--text-3)" }}>US only</span>
-        </div>
-      </header>
+      <HeroBackground />
 
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-10 flex flex-col gap-8">
-        {/* Hero — only when idle with no results */}
-        <AnimatePresence>
-          {!results && !isLoading && (
+      {/* Top-left logo — shown after search, animates from hero title */}
+      <AnimatePresence>
+        {!isIdle && (
+          <motion.div
+            className="fixed top-5 left-6 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.button
+              layoutId="pickr-logo"
+              onClick={handleReset}
+              className="text-2xl font-bold leading-none cursor-pointer"
+              style={LOGO_STYLES_DARK_BG}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              Pickr
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <main
+        className={`relative z-10 flex-1 w-full mx-auto px-4 flex flex-col gap-5 ${
+          hasResults ? "max-w-6xl" : "max-w-2xl"
+        } ${isIdle ? "justify-center" : "py-10 gap-8"}`}
+        style={{ isolation: "isolate" }}
+      >
+        {/* Hero — only when idle */}
+        <AnimatePresence mode="wait">
+          {isIdle && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12, scale: 0.98 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center pt-4 pb-2"
+              exit={{ opacity: 0, scale: 0.96, filter: "blur(4px)" }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center"
             >
-              <h1
-                className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-4 leading-[1.1]"
-                style={{ color: "var(--text-1)", fontFamily: "var(--font-instrument-serif)" }}
+              <div
+                className="inline-flex flex-col items-center gap-3 px-10 py-8 rounded-3xl mb-1"
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-mid)",
+                  boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+                }}
               >
-                Find the right product,{" "}
-                <span
-                  className="relative inline-block"
-                  style={{
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}
+                <motion.h1
+                  layoutId="pickr-logo"
+                  className="text-6xl sm:text-7xl md:text-8xl font-bold tracking-tight leading-none"
+                  style={LOGO_STYLES}
+                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  without the noise.
-                </span>
-              </h1>
-              <p className="text-base max-w-lg mx-auto" style={{ color: "var(--text-2)" }}>
-                Describe what you need. We search, compare, and explain — so you pick with confidence.
-              </p>
+                  Pickr
+                </motion.h1>
 
-              {/* Feature pills */}
-              <div className="flex items-center justify-center gap-2 mt-6 flex-wrap">
-                {["Real-time search", "Side-by-side compare", "AI-scored"].map((tag, i) => (
-                  <motion.span
-                    key={tag}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + i * 0.08, duration: 0.4 }}
-                    className="text-xs px-3 py-1 rounded-full"
-                    style={{
-                      background: "var(--bg-elevated)",
-                      color: "var(--text-2)",
-                      border: "1px solid var(--border-mid)",
-                    }}
-                  >
-                    {tag}
-                  </motion.span>
-                ))}
+                <p className="text-sm" style={{ color: "var(--text-2)" }}>
+                  Tell us what you need. We handle the rest.
+                </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Search form — shown when idle or when user toggles it back */}
+        {/* Search form */}
         <AnimatePresence>
           {(showSearch || isLoading) && (
             <motion.div
               key="search-form"
-              initial={{ opacity: 0, y: -16 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16, scale: 0.98 }}
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
               layout
+              layoutId="search-form"
             >
               <SearchForm
                 key={lastQuery + lastMaxPrice}
@@ -184,7 +191,6 @@ export default function Home() {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               layout
             >
-              {/* Search again button */}
               {!showSearch && (
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -196,12 +202,13 @@ export default function Home() {
                     onClick={() => setShowSearch(true)}
                     className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl transition-all hover:opacity-80"
                     style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border-mid)",
-                      color: "var(--text-2)",
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      color: "#d6d3e2",
+                      backdropFilter: "blur(8px)",
                     }}
                   >
-                    <span style={{ color: "var(--accent-blue)" }}>✦</span>
+                    <span style={{ color: "#a78bfa" }}>✦</span>
                     Search again
                   </button>
                 </motion.div>
@@ -213,9 +220,6 @@ export default function Home() {
         </AnimatePresence>
       </main>
 
-      <footer className="py-5 text-center text-xs" style={{ color: "var(--text-3)", borderTop: "1px solid var(--border-dim)" }}>
-        AI-generated results · Prices may vary · US products only
-      </footer>
     </div>
   )
 }

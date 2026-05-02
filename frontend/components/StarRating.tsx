@@ -24,7 +24,7 @@ export function StarRating({ rating, reviews, size = 14 }: StarRatingProps) {
           <defs>
             <linearGradient id="half-grad">
               <stop offset="50%" stopColor="#D97706" />
-              <stop offset="50%" stopColor="#1E2D40" />
+              <stop offset="50%" stopColor="#d1d1d8" />
             </linearGradient>
           </defs>
           <polygon
@@ -36,14 +36,14 @@ export function StarRating({ rating, reviews, size = 14 }: StarRatingProps) {
       {type === "empty" && (
         <polygon
           points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
-          fill="#1E2D40"
+          fill="#d1d1d8"
         />
       )}
     </svg>
   )
 
   if (!rating || isNaN(value)) {
-    return <span className="text-xs" style={{ color: "var(--text-muted)" }}>No rating</span>
+    return <span className="text-xs" style={{ color: "var(--text-3)" }}>No rating</span>
   }
 
   return (
@@ -53,10 +53,10 @@ export function StarRating({ rating, reviews, size = 14 }: StarRatingProps) {
         {half > 0 && <Star key="h" type="half" />}
         {Array.from({ length: empty }).map((_, i) => <Star key={`e${i}`} type="empty" />)}
       </div>
-      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+      <span className="text-xs" style={{ color: "var(--text-2)" }}>
         {clamped.toFixed(1)}
         {reviews && (
-          <span style={{ color: "var(--text-muted)" }}> ({Number(reviews).toLocaleString()})</span>
+          <span style={{ color: "var(--text-3)" }}> ({Number(reviews).toLocaleString()})</span>
         )}
       </span>
     </div>

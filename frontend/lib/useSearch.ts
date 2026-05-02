@@ -86,5 +86,9 @@ export function useSearch() {
     }
   }, [])
 
-  return { ...state, search }
+  const reset = useCallback(() => {
+    setState({ isLoading: false, currentStep: 0, currentLabel: "", results: null, error: null })
+  }, [])
+
+  return { ...state, search, reset }
 }

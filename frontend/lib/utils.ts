@@ -6,9 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function scoreColor(score: number): string {
-  if (score >= 8) return "#10B981"
-  if (score >= 5) return "#F59E0B"
-  return "#EF4444"
+  if (score >= 8) return "#059669"
+  if (score >= 5) return "#D97706"
+  return "#DC2626"
 }
 
 export function formatPrice(price: string | number | undefined): string {

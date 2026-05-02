@@ -50,9 +50,9 @@ export function ResultsView({ results, maxPrice }: ResultsViewProps) {
         </motion.div>
       )}
 
-      {/* Divider */}
+      {/* Divider — sits on dark canvas */}
       {ranked_products.length > 0 && (
-        <div style={{ borderTop: "1px solid var(--border-dim)" }} />
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />
       )}
 
       {/* All ranked products */}
