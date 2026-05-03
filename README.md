@@ -106,7 +106,6 @@ User Query (natural language)
 - **AI summary** — 2–3 sentence plain-prose analysis recommending which product fits which buyer
 - **Real-time progress** — 4-step animated stepper with live status labels streamed from the backend
 - **Search history** — last 20 searches persisted in localStorage with instant result replay
-- **Dual UI** — Next.js frontend (primary) and a Streamlit app (`app.py`) for quick local testing
 - **Docker + Render ready** — one-command containerized deploy
 
 ---
@@ -263,11 +262,6 @@ npm run dev
 
 Open `http://localhost:3000`. The frontend proxies `/api/search` to the FastAPI backend at `http://localhost:8000`.
 
-### 5. (Optional) Streamlit UI
-
-```bash
-streamlit run app.py
-```
 ---
 
 ## Project Structure
@@ -277,7 +271,6 @@ streamlit run app.py
 ├── backend.py              # ShoppingGraph: LangGraph state machine, all 4 nodes
 ├── api/
 │   └── main.py             # FastAPI server, SSE streaming endpoint
-├── app.py                  # Streamlit alternative UI
 ├── frontend/
 │   ├── app/
 │   │   ├── page.tsx        # Main page: hero, search, progress, results
