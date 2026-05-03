@@ -8,6 +8,18 @@ It takes a plain-English shopping query and returns a ranked, scored shortlist o
 
 ---
 
+## Screenshots
+
+![Search](screenshots/Search.png)
+
+** TopRecommendations **
+![Recommendations - Scores](screenshots/TopRecommendations.png)
+![Recommendations - Detail](screenshots/TopRecommendations2.png)
+
+![Product List](screenshots/ProductList.png)
+
+---
+
 ## Tech Stack
 
 ### Backend
