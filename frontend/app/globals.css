@@ -66,9 +66,6 @@
   /* Borders for light cards */
   --border-dim:    #b6abce;
   --border-mid:    #9e92bc;
-  --border-strong: #7c6fa3;
-  --border-glow:   rgba(99,102,241,0.35);
-
   /* Ink (text on light cards) */
   --text-1: #15131c;   /* primary, near-black indigo-tinted */
   --text-2: #4a4655;   /* secondary */
@@ -76,8 +73,6 @@
 
   /* Accents — tuned for legibility on white */
   --accent-blue:   #4f46e5;  /* indigo-600 */
-  --accent-indigo: #4338ca;
-  --accent-violet: #7c3aed;
   --accent-green:  #059669;  /* emerald-600 */
   --accent-amber:  #d97706;  /* amber-600 */
   --accent-rose:   #dc2626;

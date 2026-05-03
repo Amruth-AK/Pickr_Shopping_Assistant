@@ -1,10 +1,38 @@
+<div align="center">
+
 # Pickr — AI-Powered Product Recommender
 
 Most product search is broken. The top results are ads, the "best of" articles are SEO bait, and nothing tells you how well a product actually matches what you need. Pickr is an attempt to fix that.
 
 It takes a plain-English shopping query and returns a ranked, scored shortlist of real products. It restructures your query, searches Google Shopping, fetches and normalizes specs from multiple sources, then uses an LLM to score every product across quality, requirement fit, and value. The result is a comparison table you can actually make a decision from.
 
-**Live demo:** [Pickr](https://pickrshoppingassistant.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_Pickr-6d28d9?style=for-the-badge)](https://pickrshoppingassistant.vercel.app/)
+
+---
+
+[![Next.js](https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-20232a?style=for-the-badge&logo=react&logoColor=61dafb)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Python](https://img.shields.io/badge/Python-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-1c1c1c?style=for-the-badge&logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraph)
+[![Docker](https://img.shields.io/badge/Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+
+</div>
+
+---
+
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [End-to-End Pipeline](#end-to-end-pipeline)
+- [Features](#features)
+- [LLM Usage](#llm-usage)
+- [Challenges](#challenges)
+- [Tech Stack](#tech-stack)
+- [Setup and Installation](#setup-and-installation)
+- [Project Structure](#project-structure)
+- [AI-Assisted Design](#ai-assisted-design)
 
 ---
 
@@ -16,40 +44,6 @@ It takes a plain-English shopping query and returns a ranked, scored shortlist o
 ![Recommendations - Detail](screenshots/TopRecommendations2.png)
 
 ![Product List](screenshots/ProductList.png)
-
----
-
-## Tech Stack
-
-### Backend
-| Layer | Library / Service |
-|---|---|
-| Workflow orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) (4-node state machine) |
-| LLM (primary) | [HuggingFace Inference API](https://huggingface.co/inference-api) — Llama 3.1 8B Instruct |
-| LLM (fallback) | [Groq](https://groq.com/) — Llama 3.1 8B Instant |
-| Product search | [SerpAPI](https://serpapi.com/) — Google Shopping engine |
-| Spec extraction | [Tavily](https://tavily.com/) — `/extract` batch + search endpoints |
-| API server | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
-| Streaming | Server-Sent Events (SSE) |
-| Caching | `cachetools.TTLCache` (1-hour spec cache, 100-item LRU) |
-
-### Frontend
-| Layer | Library / Tool |
-|---|---|
-| Framework | [Next.js 16](https://nextjs.org/) (App Router) + React 19 |
-| Language | TypeScript |
-| Styling | [Tailwind CSS v4](https://tailwindcss.com/) |
-| Components | [shadcn/ui](https://ui.shadcn.com/) + [Base UI](https://base-ui.com/) |
-| Animations | [Framer Motion 12](https://www.framer-motion.com/) |
-| Icons | [Lucide React](https://lucide.dev/) |
-| Fonts | Fraunces (serif headline) + Inter (body) — via `next/font` |
-
-### Infrastructure
-| Tool | Purpose |
-|---|---|
-| Docker | Containerized backend (Python 3.11 slim) |
-| Render | Cloud deployment (`render.yaml` config included) |
-| localStorage | Client-side search history (up to 20 entries) |
 
 ---
 
@@ -208,6 +202,40 @@ The UX handles this with a 4-step animated progress stepper that sends live step
 
 ---
 
+## Tech Stack
+
+### Backend
+| Layer | Library / Service |
+|---|---|
+| Workflow orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) (4-node state machine) |
+| LLM (primary) | [HuggingFace Inference API](https://huggingface.co/inference-api) — Llama 3.1 8B Instruct |
+| LLM (fallback) | [Groq](https://groq.com/) — Llama 3.1 8B Instant |
+| Product search | [SerpAPI](https://serpapi.com/) — Google Shopping engine |
+| Spec extraction | [Tavily](https://tavily.com/) — `/extract` batch + search endpoints |
+| API server | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
+| Streaming | Server-Sent Events (SSE) |
+| Caching | `cachetools.TTLCache` (1-hour spec cache, 100-item LRU) |
+
+### Frontend
+| Layer | Library / Tool |
+|---|---|
+| Framework | [Next.js 16](https://nextjs.org/) (App Router) + React 19 |
+| Language | TypeScript |
+| Styling | [Tailwind CSS v4](https://tailwindcss.com/) |
+| Components | [shadcn/ui](https://ui.shadcn.com/) + [Base UI](https://base-ui.com/) |
+| Animations | [Framer Motion 12](https://www.framer-motion.com/) |
+| Icons | [Lucide React](https://lucide.dev/) |
+| Fonts | Fraunces (serif headline) + Inter (body) — via `next/font` |
+
+### Infrastructure
+| Tool | Purpose |
+|---|---|
+| Docker | Containerized backend (Python 3.11 slim) |
+| Render | Cloud deployment (`render.yaml` config included) |
+| localStorage | Client-side search history (up to 20 entries) |
+
+---
+
 ## Setup and Installation
 
 ### Prerequisites
@@ -219,7 +247,7 @@ The UX handles this with a 4-step animated progress stepper that sends live step
 ### 1. Clone and install Python dependencies
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Amruth-AK/shopping-assistant
 cd shopping-assistant
 pip install -r requirements.txt
 ```

@@ -1190,11 +1190,6 @@ class ShoppingGraph:
             state["durations_ms"]["rank_products"] = round((time.time() - _t0) * 1000)
             return state
 
-    def _should_end(self, state: ProductState) -> bool:
-        return True
-
-
-
 
 def _log_search(session_id: str, t_start: float, state: Dict[str, Any]) -> None:
     """Append one search record to search_log.jsonl for offline analysis."""
