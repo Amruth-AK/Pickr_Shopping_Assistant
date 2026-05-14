@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
-from backend import ShoppingGraph, _log_search, save_to_csv
+from backend import ShoppingGraph, _log_search
 
 app = FastAPI(title="Shopping Assistant API")
 
@@ -78,7 +78,6 @@ async def _run_search(req: SearchRequest):
     state = await graph._rank_products_node(state)
 
     _log_search(session_id, t_start, state)
-    save_to_csv(state)
 
     yield _sse({
         "step": "done",
