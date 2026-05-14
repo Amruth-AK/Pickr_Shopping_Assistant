@@ -116,7 +116,6 @@ _hf_key_index = 0
 
 
 # Limit concurrent Tavily calls to avoid free-tier rate limits
-# Created lazily per event loop to avoid "bound to a different event loop" errors
 _TAVILY_SEM: Optional[asyncio.Semaphore] = None
 
 def _get_tavily_sem() -> asyncio.Semaphore:
