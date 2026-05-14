@@ -33,19 +33,28 @@ _SERPAPI_KEYS: List[str] = [
 if not _SERPAPI_KEYS:
     raise RuntimeError("No SerpAPI keys found. Set SERPAPI_KEY_1 / SERPAPI_KEY_2 in .env")
 _serpapi_key_index = 0
+_serpapi_exhausted: set = set()
 
 def _get_serpapi_key() -> str:
     return _SERPAPI_KEYS[_serpapi_key_index % len(_SERPAPI_KEYS)]
 
-def _rotate_serpapi_key(reason: str = "") -> bool:
-    """Advance to the next SerpAPI key. Returns False if all keys are exhausted."""
-    global _serpapi_key_index
-    _serpapi_key_index += 1
-    if _serpapi_key_index >= len(_SERPAPI_KEYS):
-        logger.error("All SerpAPI keys exhausted.")
-        return False
-    logger.warning(f"SerpAPI key rotated (index {_serpapi_key_index}). Reason: {reason}")
-    return True
+def _is_serpapi_quota_error(err: str) -> bool:
+    return any(k in err for k in ("credit", "limit", "run out", "searches", "429", "quota", "exceed"))
+
+def _rotate_serpapi_key(reason: str = "", failed_index: int = -1) -> bool:
+    """Advance to the next SerpAPI key. Returns False if all keys are exhausted.
+    If failed_index != current index, another caller already rotated — return True immediately."""
+    global _serpapi_key_index, _serpapi_exhausted
+    if failed_index != -1 and failed_index != _serpapi_key_index:
+        return True
+    _serpapi_exhausted.add(_serpapi_key_index)
+    for i in range(len(_SERPAPI_KEYS)):
+        if i not in _serpapi_exhausted:
+            _serpapi_key_index = i
+            logger.warning(f"SerpAPI key rotated to index {i}. Reason: {reason}")
+            return True
+    logger.error("All SerpAPI keys exhausted.")
+    return False
 
 # ── Tavily key rotation ──────────────────────────────────────────────────────
 _TAVILY_KEYS: List[str] = [
@@ -58,26 +67,41 @@ _TAVILY_KEYS: List[str] = [
 if not _TAVILY_KEYS:
     raise RuntimeError("No Tavily keys found. Set TAVILY_API_KEY_1 / TAVILY_API_KEY_2 / TAVILY_API_KEY_3 in .env")
 _tavily_key_index = 0
+_tavily_exhausted: set = set()
 _tavily_client: Optional[AsyncTavilyClient] = None
+_tavily_lock: Optional[asyncio.Lock] = None
+
+def _get_tavily_lock() -> asyncio.Lock:
+    global _tavily_lock
+    if _tavily_lock is None:
+        _tavily_lock = asyncio.Lock()
+    return _tavily_lock
+
+def _is_tavily_quota_error(err: str) -> bool:
+    return any(k in err for k in ("credit", "quota", "rate", "429", "432", "limit", "exceed", "usage"))
 
 def _get_tavily_client() -> AsyncTavilyClient:
     global _tavily_client
-    loop = asyncio.get_event_loop()
-    current_key = _TAVILY_KEYS[_tavily_key_index % len(_TAVILY_KEYS)]
-    if _tavily_client is None or getattr(_tavily_client, "_loop", loop) is not loop:
-        _tavily_client = AsyncTavilyClient(api_key=current_key)
+    if _tavily_client is None:
+        _tavily_client = AsyncTavilyClient(api_key=_TAVILY_KEYS[_tavily_key_index])
     return _tavily_client
 
-def _rotate_tavily_key(reason: str = "") -> bool:
-    """Advance to the next Tavily key, rebuilding the client. Returns False if all exhausted."""
-    global _tavily_key_index, _tavily_client
-    _tavily_key_index += 1
-    if _tavily_key_index >= len(_TAVILY_KEYS):
+async def _rotate_tavily_key(reason: str = "", failed_index: int = -1) -> bool:
+    """Advance to the next Tavily key. Serialized via lock to prevent concurrent races.
+    If failed_index != current index, another coroutine already rotated — return True."""
+    global _tavily_key_index, _tavily_exhausted, _tavily_client
+    async with _get_tavily_lock():
+        if failed_index != -1 and failed_index != _tavily_key_index:
+            return True
+        _tavily_exhausted.add(_tavily_key_index)
+        for i in range(len(_TAVILY_KEYS)):
+            if i not in _tavily_exhausted:
+                _tavily_key_index = i
+                _tavily_client = None
+                logger.warning(f"Tavily key rotated to index {i}. Reason: {reason}")
+                return True
         logger.error("All Tavily keys exhausted.")
         return False
-    _tavily_client = None  # force rebuild with new key
-    logger.warning(f"Tavily key rotated (index {_tavily_key_index}). Reason: {reason}")
-    return True
 
 # ── HuggingFace key rotation ─────────────────────────────────────────────────
 _HF_KEYS: List[str] = [
@@ -97,8 +121,7 @@ _TAVILY_SEM: Optional[asyncio.Semaphore] = None
 
 def _get_tavily_sem() -> asyncio.Semaphore:
     global _TAVILY_SEM
-    loop = asyncio.get_event_loop()
-    if _TAVILY_SEM is None or _TAVILY_SEM._loop is not loop:
+    if _TAVILY_SEM is None:
         _TAVILY_SEM = asyncio.Semaphore(8)
     return _TAVILY_SEM
 
@@ -234,7 +257,7 @@ class ShoppingGraph:
                         return response.choices[0].message.content
                     except Exception as e:
                         err = str(e)
-                        if "402" in err or "Payment Required" in err or "credits" in err.lower():
+                        if "402" in err or "payment required" in err.lower() or "credits" in err.lower() or "exceeded" in err.lower() or "monthly" in err.lower() or "depleted" in err.lower():
                             logger.warning(f"HuggingFace key {_hf_key_index} credits exhausted.")
                             _hf_key_index += 1
                             if _hf_key_index >= len(_HF_KEYS):
@@ -433,11 +456,11 @@ class ShoppingGraph:
                 try:
                     search = GoogleSearch(params)
                     results = search.get_dict()
-                    if "error" in results and ("credit" in results["error"].lower() or "limit" in results["error"].lower()):
+                    if "error" in results and _is_serpapi_quota_error(results["error"].lower()):
                         raise Exception(results["error"])
                     break
                 except Exception as e:
-                    if attempt < len(_SERPAPI_KEYS) - 1 and _rotate_serpapi_key(str(e)):
+                    if attempt < len(_SERPAPI_KEYS) - 1 and _rotate_serpapi_key(str(e), failed_index=_serpapi_key_index):
                         continue
                     raise
             product_results = results.get("shopping_results", [])[:20]
@@ -511,12 +534,12 @@ class ShoppingGraph:
                 result = await loop.run_in_executor(
                     None, lambda p=params: GoogleSearch(p).get_dict()
                 )
-                if "error" in result and ("credit" in result["error"].lower() or "limit" in result["error"].lower()):
+                if "error" in result and _is_serpapi_quota_error(result["error"].lower()):
                     raise Exception(result["error"])
                 break
             except Exception as e:
                 last_exc = e
-                if attempt < len(_SERPAPI_KEYS) - 1 and _rotate_serpapi_key(str(e)):
+                if attempt < len(_SERPAPI_KEYS) - 1 and _rotate_serpapi_key(str(e), failed_index=_serpapi_key_index):
                     continue
                 raise last_exc
         try:
@@ -537,34 +560,6 @@ class ShoppingGraph:
         except Exception as e:
             logger.warning(f"google_product fetch failed for product_id={product_id}: {e}")
             return None
-
-    async def _fetch_urls_via_extract(self, products: List[Dict]) -> Dict[str, str]:
-        """Batch-extract direct page content from known product URLs via Tavily /extract.
-
-        Returns a dict mapping url → extracted content string (up to 3000 chars).
-        A single API call handles up to 10 URLs, far cheaper than 10 search calls.
-        """
-        urls = [p["url"] for p in products if p.get("url")][:10]
-        if not urls:
-            return {}
-        for attempt in range(len(_TAVILY_KEYS)):
-            try:
-                response = await _get_tavily_client().extract(
-                    urls=urls,
-                    extract_depth="basic",
-                )
-                return {
-                    r["url"]: r.get("raw_content", "")[:3000]
-                    for r in response.get("results", [])
-                    if r.get("raw_content")
-                }
-            except Exception as e:
-                err = str(e).lower()
-                if ("credit" in err or "quota" in err or "rate" in err or "429" in err) and attempt < len(_TAVILY_KEYS) - 1:
-                    if _rotate_tavily_key(str(e)):
-                        continue
-                logger.warning(f"Tavily extract failed: {e}")
-                return {}
 
     async def _fetch_tavily_content(self, product: Dict) -> Dict:
         """Fetch Tavily search content for a single product concurrently."""
@@ -603,8 +598,8 @@ class ShoppingGraph:
                             break
                         except Exception as ke:
                             err = str(ke).lower()
-                            if ("credit" in err or "quota" in err or "rate" in err or "429" in err) and key_attempt < len(_TAVILY_KEYS) - 1:
-                                if _rotate_tavily_key(str(ke)):
+                            if _is_tavily_quota_error(err) and key_attempt < len(_TAVILY_KEYS) - 1:
+                                if await _rotate_tavily_key(str(ke), failed_index=_tavily_key_index):
                                     continue
                             raise
 
@@ -634,30 +629,25 @@ class ShoppingGraph:
 
     async def _extract_specifications_node(self, state: ProductState) -> ProductState:
         """Fetch Tavily details concurrently, then batch-extract structured specs via LLM."""
+        global _tavily_key_index, _tavily_exhausted, _tavily_client
+        _tavily_key_index = 0
+        _tavily_exhausted = set()
+        _tavily_client = None
         _t0 = time.time()
 
-        # Step 1a: Run Tavily /extract and google_product concurrently (independent data sources)
+        # Step 1a: Fetch google_product details for top 8 products
         _t_tavily = time.time()
         top8_products = state["products"][:8]
-        gp_tasks = [
+        gp_results_list = await asyncio.gather(*[
             self._fetch_google_product_details(p.get("product_id", ""))
             for p in top8_products
-        ]
-        url_content_map, *gp_results_list = await asyncio.gather(
-            self._fetch_urls_via_extract(state["products"]),
-            *gp_tasks,
-        )
-        # Build product_id → google_product details map
+        ])
         gp_map: Dict[str, Dict] = {}
         for p, gp in zip(top8_products, gp_results_list):
             if gp and p.get("product_id"):
                 gp_map[p["product_id"]] = gp
         logger.info(f"google_product: enriched {len(gp_map)}/{len(top8_products)} products")
-        logger.info(f"Tavily extract: got content for {len(url_content_map)}/{len(state['products'])} product URLs")
 
-        # Pre-populate _raw_content from extract results; products without URL content
-        # will fall through to the per-product search in Step 1b.
-        # google_product data is merged as a leading block for manufacturer-provided specs.
         def _build_gp_prefix(product: Dict) -> str:
             gp = gp_map.get(product.get("product_id", ""))
             if not gp:
@@ -673,38 +663,26 @@ class ShoppingGraph:
                 parts.append(f"Lowest seller price: {gp['lowest_price']}")
             return "\n".join(parts)
 
-        products_preloaded = []
         products_needing_search = []
         for p in state["products"]:
-            extracted = url_content_map.get(p.get("url", ""), "")
             gp_prefix = _build_gp_prefix(p)
-            if len(extracted) >= 800:
-                combined = (gp_prefix + "\n" + extracted).strip() if gp_prefix else extracted
-                products_preloaded.append({**p, "_raw_content": combined[:3000]})
-            else:
-                # Either no URL, failed extract, or too thin — search by title
-                p_with_prefix = {**p}
-                combined_prefix = (gp_prefix + "\n" + extracted).strip() if (gp_prefix or extracted) else ""
-                if combined_prefix:
-                    p_with_prefix["_extract_prefix"] = combined_prefix
-                products_needing_search.append(p_with_prefix)
+            p_with_prefix = {**p}
+            if gp_prefix:
+                p_with_prefix["_extract_prefix"] = gp_prefix
+            products_needing_search.append(p_with_prefix)
 
-        # Step 1b: Fetch remaining products via per-product Tavily search (concurrent)
+        # Step 1b: Fetch all products via per-product Tavily search (concurrent)
         fetch_tasks = [self._fetch_tavily_content(p) for p in products_needing_search]
         searched_products: List[Dict] = list(await asyncio.gather(*fetch_tasks)) if fetch_tasks else []
 
-        # Merge extract prefix (if any) into search content for richer context
         for p in searched_products:
             prefix = p.pop("_extract_prefix", "")
             if prefix:
                 p["_raw_content"] = (prefix + "\n" + p.get("_raw_content", "")).strip()
 
-        products_with_content: List[Dict] = products_preloaded + searched_products
+        products_with_content: List[Dict] = searched_products
         state["durations_ms"]["tavily_fetch"] = round((time.time() - _t_tavily) * 1000)
-        logger.info(
-            f"Tavily fetch complete: {len(products_preloaded)} from extract, "
-            f"{len(searched_products)} from search"
-        )
+        logger.info(f"Tavily fetch complete: {len(searched_products)} from search")
 
         # Step 2: Batch LLM calls — smaller batches + tighter content when on Groq
         # Groq free tier: 6K TPM. 3 products × 600 chars ≈ 1500 tokens + overhead ≈ 2200/call,
