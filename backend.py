@@ -4,9 +4,9 @@ import json
 import time
 import asyncio
 import logging
-import pandas as pd
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, TypedDict
+from db import insert_search_log
 from tavily import AsyncTavilyClient
 from dotenv import load_dotenv
 from cachetools import TTLCache
@@ -36,15 +36,14 @@ _serpapi_key_index = 0
 _serpapi_exhausted: set = set()
 
 def _get_serpapi_key() -> str:
-    return _SERPAPI_KEYS[_serpapi_key_index]
+    return _SERPAPI_KEYS[_serpapi_key_index % len(_SERPAPI_KEYS)]
 
 def _is_serpapi_quota_error(err: str) -> bool:
     return any(k in err for k in ("credit", "limit", "run out", "searches", "429", "quota", "exceed"))
 
 def _rotate_serpapi_key(reason: str = "", failed_index: int = -1) -> bool:
     """Advance to the next SerpAPI key. Returns False if all keys are exhausted.
-    If failed_index != current index, another caller already rotated — return True immediately.
-    """
+    If failed_index != current index, another caller already rotated — return True immediately."""
     global _serpapi_key_index, _serpapi_exhausted
     if failed_index != -1 and failed_index != _serpapi_key_index:
         return True
@@ -70,15 +69,16 @@ if not _TAVILY_KEYS:
 _tavily_key_index = 0
 _tavily_exhausted: set = set()
 _tavily_client: Optional[AsyncTavilyClient] = None
-# Lock is created inside the running event loop on first use to avoid "no running loop" errors at import time
 _tavily_lock: Optional[asyncio.Lock] = None
 
 def _get_tavily_lock() -> asyncio.Lock:
     global _tavily_lock
-    # Safe: asyncio is single-threaded, so no race on this check
     if _tavily_lock is None:
         _tavily_lock = asyncio.Lock()
     return _tavily_lock
+
+def _is_tavily_quota_error(err: str) -> bool:
+    return any(k in err for k in ("credit", "quota", "rate", "429", "432", "limit", "exceed", "usage"))
 
 def _get_tavily_client() -> AsyncTavilyClient:
     global _tavily_client
@@ -86,19 +86,12 @@ def _get_tavily_client() -> AsyncTavilyClient:
         _tavily_client = AsyncTavilyClient(api_key=_TAVILY_KEYS[_tavily_key_index])
     return _tavily_client
 
-def _is_tavily_quota_error(err: str) -> bool:
-    return any(k in err for k in ("credit", "quota", "rate", "429", "432", "limit", "exceed", "usage"))
-
 async def _rotate_tavily_key(reason: str = "", failed_index: int = -1) -> bool:
-    """Advance to the next available Tavily key. Serialized via lock to prevent concurrent races.
-
-    If failed_index != current index, another coroutine already rotated — return True so the
-    caller retries on the already-rotated key without logging a spurious exhaustion error.
-    """
+    """Advance to the next Tavily key. Serialized via lock to prevent concurrent races.
+    If failed_index != current index, another coroutine already rotated — return True."""
     global _tavily_key_index, _tavily_exhausted, _tavily_client
     async with _get_tavily_lock():
         if failed_index != -1 and failed_index != _tavily_key_index:
-            # Another coroutine already rotated past this key — just use the current one
             return True
         _tavily_exhausted.add(_tavily_key_index)
         for i in range(len(_TAVILY_KEYS)):
@@ -121,23 +114,6 @@ if not _HF_KEYS:
     raise RuntimeError("No HuggingFace keys found. Set HUGGINGFACE_API_TOKEN_1 / HUGGINGFACE_API_TOKEN_2 in .env")
 _hf_key_index = 0
 
-LOG_FILE = "search_log.jsonl"
-DEBUG_LOG_FILE = "debug_pipeline.jsonl"
-
-
-def _debug_log(session_id: str, stage: str, data: Any) -> None:
-    """Append a single pipeline stage snapshot to the debug log."""
-    try:
-        record = {
-            "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "stage": stage,
-            "data": data,
-        }
-        with open(DEBUG_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-    except Exception as e:
-        logger.error(f"Debug log write failed ({stage}): {e}")
 
 # Limit concurrent Tavily calls to avoid free-tier rate limits
 _TAVILY_SEM: Optional[asyncio.Semaphore] = None
@@ -388,10 +364,6 @@ class ShoppingGraph:
             )
 
             result = self._llm_call(prompt, _SYSTEM_QUERY, temperature=0.2)
-            _debug_log(state.get("session_id", "unknown"), "1_query_rewrite", {
-                "prompt": prompt,
-                "llm_raw_output": result,
-            })
 
             translated = re.search(r"^Translated:\s*(.+)$", result, re.MULTILINE)
             restructured = re.search(r"^Restructured:\s*(.+)$", result, re.MULTILINE)
@@ -523,24 +495,6 @@ class ShoppingGraph:
 
             products = self._deduplicate_products(products)
             state["products"] = products
-            _debug_log(state.get("session_id", "unknown"), "2_serp_results", {
-                "query_sent": state["processed_query"]["restructured"],
-                "raw_count": len(product_results),
-                "after_dedup_count": len(products),
-                "products": [
-                    {
-                        "title": p["title"],
-                        "source": p["source"],
-                        "price": p["price"],
-                        "rating": p["rating"],
-                        "reviews": p["reviews"],
-                        "url": p["url"],
-                        "image": p["image"],
-                        "extensions": p["extensions"],
-                    }
-                    for p in products
-                ],
-            })
             state["status"]["search_products"] = f"Completed: Found {len(products)} products"
             state["status"]["extract_specifications"] = "Pending"
             state["durations_ms"]["search_products"] = round((time.time() - _t0) * 1000)
@@ -605,7 +559,6 @@ class ShoppingGraph:
         except Exception as e:
             logger.warning(f"google_product fetch failed for product_id={product_id}: {e}")
             return None
-
 
     async def _fetch_tavily_content(self, product: Dict) -> Dict:
         """Fetch Tavily search content for a single product concurrently."""
@@ -676,13 +629,9 @@ class ShoppingGraph:
     async def _extract_specifications_node(self, state: ProductState) -> ProductState:
         """Fetch Tavily details concurrently, then batch-extract structured specs via LLM."""
         global _tavily_key_index, _tavily_exhausted, _tavily_client
-        global _serpapi_key_index, _serpapi_exhausted
         _tavily_key_index = 0
         _tavily_exhausted = set()
         _tavily_client = None
-        _serpapi_key_index = 0
-        _serpapi_exhausted = set()
-
         _t0 = time.time()
 
         # Step 1a: Fetch google_product details for top 8 products
@@ -692,14 +641,12 @@ class ShoppingGraph:
             self._fetch_google_product_details(p.get("product_id", ""))
             for p in top8_products
         ])
-        # Build product_id → google_product details map
         gp_map: Dict[str, Dict] = {}
         for p, gp in zip(top8_products, gp_results_list):
             if gp and p.get("product_id"):
                 gp_map[p["product_id"]] = gp
         logger.info(f"google_product: enriched {len(gp_map)}/{len(top8_products)} products")
 
-        # google_product data is merged as a leading block for manufacturer-provided specs.
         def _build_gp_prefix(product: Dict) -> str:
             gp = gp_map.get(product.get("product_id", ""))
             if not gp:
@@ -735,18 +682,6 @@ class ShoppingGraph:
         products_with_content: List[Dict] = searched_products
         state["durations_ms"]["tavily_fetch"] = round((time.time() - _t_tavily) * 1000)
         logger.info(f"Tavily fetch complete: {len(searched_products)} from search")
-        _debug_log(state.get("session_id", "unknown"), "3_tavily_fetch", {
-            "searched_count": len(searched_products),
-            "products": [
-                {
-                    "title": p["title"],
-                    "fetch_method": "search",
-                    "content_chars": len(p.get("_raw_content", "")),
-                    "raw_content": p.get("_raw_content", ""),
-                }
-                for p in products_with_content
-            ],
-        })
 
         # Step 2: Batch LLM calls — smaller batches + tighter content when on Groq
         # Groq free tier: 6K TPM. 3 products × 600 chars ≈ 1500 tokens + overhead ≈ 2200/call,
@@ -794,25 +729,8 @@ class ShoppingGraph:
                     parsed = parsed.get("products", parsed.get("items", [parsed]))
                 if not isinstance(parsed, list):
                     parsed = [parsed]
-                _debug_log(state.get("session_id", "unknown"), f"4_spec_extraction_batch_{batch_num}", {
-                    "batch_titles": [p["title"] for p in batch],
-                    "content_cap": content_cap,
-                    "prompt": prompt,
-                    "llm_raw_response": raw_response,
-                    "parsed_ok": True,
-                    "parsed_count": len(parsed),
-                    "parsed": parsed,
-                })
             except Exception as e:
                 logger.error(f"Spec extraction LLM failed for batch {batch_num}: {e}")
-                _debug_log(state.get("session_id", "unknown"), f"4_spec_extraction_batch_{batch_num}", {
-                    "batch_titles": [p["title"] for p in batch],
-                    "content_cap": content_cap,
-                    "prompt": prompt,
-                    "llm_raw_response": raw_response if 'raw_response' in dir() else None,
-                    "parsed_ok": False,
-                    "error": str(e),
-                })
                 parsed = []
 
             # Map parsed results back to products by title (fuzzy match)
@@ -1032,22 +950,8 @@ class ShoppingGraph:
             try:
                 raw = self._llm_call(prompt, _SYSTEM_RANK, temperature=0.3, json_mode=True)
                 llm_data = self._parse_json_response(raw)
-                _debug_log(state.get("session_id", "unknown"), "5_ranking", {
-                    "candidate_count": len(candidates),
-                    "prompt": prompt,
-                    "llm_raw_response": raw,
-                    "parsed_ok": True,
-                    "parsed": llm_data,
-                })
             except Exception as e:
                 logger.error(f"Ranking LLM failed: {e}")
-                _debug_log(state.get("session_id", "unknown"), "5_ranking", {
-                    "candidate_count": len(candidates),
-                    "prompt": prompt,
-                    "llm_raw_response": raw if 'raw' in dir() else None,
-                    "parsed_ok": False,
-                    "error": str(e),
-                })
                 llm_data = {"products": []}
 
             # Build lookup: title → LLM output
@@ -1181,8 +1085,8 @@ class ShoppingGraph:
             return state
 
 
-def _log_search(session_id: str, t_start: float, state: Dict[str, Any]) -> None:
-    """Append one search record to search_log.jsonl for offline analysis."""
+def _log_search(session_id: str, t_start: float, state: Dict[str, Any]) -> str:
+    """Append one search record to Neon DB (or local JSONL fallback). Returns timestamp."""
     try:
         durations = state.get("durations_ms", {})
         total_ms = round((time.time() - t_start) * 1000)
@@ -1200,8 +1104,6 @@ def _log_search(session_id: str, t_start: float, state: Dict[str, Any]) -> None:
         for rank, p in enumerate(state.get("ranked_products", []), 1):
             analysis = p.get("analysis", {})
             scores = analysis.get("scores", {}) if isinstance(analysis, dict) else {}
-            score_analysis = analysis.get("analysis", {}) if isinstance(analysis, dict) else {}
-            raw_content = p.get("raw_details", "")
             products_log.append({
                 "rank": rank,
                 "title": p.get("title", ""),
@@ -1209,102 +1111,49 @@ def _log_search(session_id: str, t_start: float, state: Dict[str, Any]) -> None:
                 "price": p.get("price", "N/A"),
                 "rating": p.get("rating", ""),
                 "reviews": p.get("reviews", ""),
-                "tavily_content_chars": len(raw_content),
-                "tavily_had_summary": raw_content.startswith("[Summary]"),
+                "url": p.get("url", ""),
+                "thumbnail": p.get("image", ""),
                 "key_features": analysis.get("key_features", "") if isinstance(analysis, dict) else "",
                 "pros": analysis.get("pros", "") if isinstance(analysis, dict) else "",
                 "cons": analysis.get("cons", "") if isinstance(analysis, dict) else "",
                 "summary": p.get("structured_details", {}).get("summary", ""),
                 "scores": scores,
-                "score_analysis": score_analysis,
                 "is_recommendation": p.get("title", "").lower() in recommendation_titles,
                 "recommendation_reason": p.get("recommendation_reason", ""),
             })
 
+        processed_query = state.get("processed_query", {})
+        ts = datetime.now(timezone.utc).isoformat()
         record = {
             "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": ts,
             "durations_ms": {**durations, "total": total_ms},
             "input": {
                 "query": state.get("query", ""),
                 "max_price": state.get("max_price"),
-                "requirements": state.get("additional_requirements", ""),
             },
-            "query_rewrite": state.get("processed_query", {}),
-            "serp_results_count": len(state.get("products", [])),
+            "query_rewrite": {
+                "translated": processed_query.get("translated", ""),
+                "restructured": processed_query.get("restructured", ""),
+            },
+            "analysis_summary": state.get("analysis_summary", ""),
             "products": products_log,
-            "pipeline_status": state.get("status", {}),
         }
 
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
+        with open("search_log.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        logger.info(f"Search logged locally (session {session_id})")
 
-        logger.info(f"Search logged to {LOG_FILE} (session {session_id})")
+        if insert_search_log(record):
+            logger.info(f"Search logged to Neon (session {session_id})")
+        else:
+            logger.warning(f"Neon insert failed — search not persisted (session {session_id})")
+
+        return ts
 
     except Exception as e:
         logger.error(f"Failed to write search log: {e}")
+        return datetime.now(timezone.utc).isoformat()
 
 
-def save_to_csv(state: Dict[str, Any]) -> None:
-    """Save ranked products with full specs and scores to a per-query CSV file."""
-    try:
-        query = state.get("query", "unknown")
-        max_price = state.get("max_price")
-        additional_requirements = state.get("additional_requirements", "")
-        processed_query = state.get("processed_query", {})
-        restructured_query = processed_query.get("restructured", query)
-        ranked_products = state.get("ranked_products", [])
-        recommendation_titles = {
-            p.get("title", "").lower() for p in state.get("recommendations", [])
-        }
-
-        safe_query = re.sub(r'[^a-zA-Z0-9\s-]', '', query).replace(' ', '_').lower()
-        filename = f"shopping_results_{safe_query}.csv"
-
-        rows = []
-        for rank, p in enumerate(ranked_products, 1):
-            analysis = p.get("analysis", {}) if isinstance(p.get("analysis"), dict) else {}
-            scores = analysis.get("scores", {})
-            score_analysis = analysis.get("analysis", {})
-            structured = p.get("structured_details", {})
-
-            rows.append({
-                "rank": rank,
-                "query": query,
-                "restructured_query": restructured_query,
-                "max_price": max_price,
-                "requirements": additional_requirements,
-                "title": p.get("title", ""),
-                "source": p.get("source", ""),
-                "price": p.get("price", "N/A"),
-                "rating": p.get("rating", ""),
-                "reviews": p.get("reviews", ""),
-                "url": p.get("url", ""),
-                "key_features": "; ".join(structured.get("key_features", [])),
-                "pros": "; ".join(structured.get("pros", [])),
-                "cons": "; ".join(structured.get("cons", [])),
-                "summary": structured.get("summary", ""),
-                "score_performance": scores.get("performance", ""),
-                "score_value": scores.get("value_for_money", ""),
-                "score_requirements": scores.get("matching_requirements", ""),
-                "score_overall": scores.get("overall_score", ""),
-                "analysis_performance": score_analysis.get("performance_analysis", ""),
-                "analysis_value": score_analysis.get("value_analysis", ""),
-                "analysis_requirements": score_analysis.get("requirements_match", ""),
-                "is_recommendation": p.get("title", "").lower() in recommendation_titles,
-                "recommendation_reason": p.get("recommendation_reason", ""),
-            })
-
-        if not rows:
-            logger.warning("save_to_csv: no ranked products to save")
-            return
-
-        df = pd.DataFrame(rows)
-        df.to_csv(filename, index=False, encoding="utf-8")
-        logger.info(f"Results saved to {filename} ({len(rows)} products)")
-
-    except Exception as e:
-        logger.error(f"Error saving results to CSV: {e}")
-
-
-__all__ = ['ShoppingGraph', 'save_to_csv']
+__all__ = ['ShoppingGraph']
